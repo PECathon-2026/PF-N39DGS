@@ -42,6 +42,25 @@ class AuditRecord(BaseModel):
     decision: str = Field(description="Policy decision applied (mask | block | allow | resolve)")
 
 
+class EgressAuditRecord(BaseModel):
+    """Schema for egress gateway audit records."""
+
+    timestamp: str = Field(description="ISO 8601 UTC timestamp")
+    event_type: str = Field(default="egress", description="Audit event category")
+    dest_host: str = Field(description="Destination hostname")
+    path: str = Field(description="URL path")
+    method: str = Field(description="HTTP method")
+    decision: str = Field(description="Egress decision: allow or block")
+    violations: list[str] = Field(
+        default_factory=list,
+        description="Violation types or categories",
+    )
+    hash_prefixes: list[str] = Field(
+        default_factory=list,
+        description="Truncated HMAC-SHA256 prefixes",
+    )
+
+
 class AuditLogger:
     """Writes tamper-evident, privacy-preserving audit trails in JSONL format."""
 
@@ -112,6 +131,45 @@ class AuditLogger:
             count=count,
             hash_prefixes=[],
             decision="resolve",
+        )
+        with open(self.log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record.model_dump()) + "\n")
+
+    def log_egress_decision(
+        self,
+        dest_host: str,
+        path: str,
+        method: str,
+        decision: str,
+        violations: list[str],
+        hash_prefixes: list[str] | None = None,
+    ) -> None:
+        """Log an egress gateway decision with zero raw secrets.
+
+        Args:
+            dest_host: Destination host.
+            path: Destination path.
+            method: HTTP method.
+            decision: 'allow' or 'block'.
+            violations: List of violation descriptions or categories.
+            hash_prefixes: Optional HMAC-SHA256 hex prefixes.
+        """
+        prefixes = hash_prefixes or []
+        for item in prefixes:
+            if not _HASH_PREFIX_REGEX.match(item) or _RAW_NUMERIC_CARD_OR_ID.match(item):
+                raise ValueError(
+                    f"AuditLogger rejected non-hash value: '{item}'. "
+                    "Only 8-16 character hexadecimal prefixes are permitted."
+                )
+
+        record = EgressAuditRecord(
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            dest_host=dest_host,
+            path=path,
+            method=method.upper(),
+            decision=decision.lower(),
+            violations=violations,
+            hash_prefixes=[hp.lower() for hp in prefixes],
         )
         with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record.model_dump()) + "\n")

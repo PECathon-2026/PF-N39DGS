@@ -104,6 +104,18 @@ class Vault:
 
         return raw_value
 
+    def get_active_secrets(self) -> list[tuple[str, str]]:
+        """Return list of (entity_type, raw_value) for active non-expired tokens.
+
+        Internal helper for egress cross-checking only.
+        """
+        now = time.time()
+        active: list[tuple[str, str]] = []
+        for _tok, (entity_type, raw_val, created_at) in self._token_to_entry.items():
+            if self._ttl_seconds is None or (now - created_at <= self._ttl_seconds):
+                active.append((entity_type, raw_val))
+        return active
+
     def wipe(self) -> None:
         """Wipe all stored tokens and secrets from memory immediately."""
         self._counters.clear()
