@@ -65,14 +65,58 @@
         </form>
     </div>
     <script>
+        const EXPECTED_CHECKOUT = {
+            name: "Alex Rivera",
+            address: "742 Evergreen Terrace, Suite CANARY-a1b2c3d4, Springfield, OR 97477",
+            phone: "+1-555-839-2041",
+            card: "4676336067708530",
+            expiry: "08/28",
+            cvv: "842"
+        };
+
+        function validateAndSubmitCheckout() {
+            const name = (document.getElementById('customer-name').value || '').trim();
+            const addr = (document.getElementById('shipping-address').value || '').trim();
+            const phone = (document.getElementById('phone-number').value || '').trim().replace(/[\s-]/g, '');
+            const card = (document.getElementById('card-number').value || '').trim().replace(/[\s-]/g, '');
+            const exp = (document.getElementById('card-expiry').value || '').trim();
+            const cvv = (document.getElementById('card-cvv').value || '').trim();
+
+            const expectedPhone = EXPECTED_CHECKOUT.phone.replace(/[\s-]/g, '');
+            const expectedCard = EXPECTED_CHECKOUT.card.replace(/[\s-]/g, '');
+
+            const isValid = (
+                name.toLowerCase() === EXPECTED_CHECKOUT.name.toLowerCase() &&
+                addr.includes("742 Evergreen Terrace") &&
+                phone === expectedPhone &&
+                card === expectedCard &&
+                exp === EXPECTED_CHECKOUT.expiry &&
+                cvv === EXPECTED_CHECKOUT.cvv
+            );
+
+            const conf = document.getElementById('confirmation');
+            if (isValid) {
+                conf.style.display = 'block';
+            } else {
+                conf.style.display = 'none';
+            }
+            return isValid;
+        }
+
         document.getElementById('checkout-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            document.getElementById('confirmation').style.display = 'block';
+            validateAndSubmitCheckout();
         });
         document.getElementById('btn-place-order').addEventListener('click', function(e) {
             e.preventDefault();
-            document.getElementById('confirmation').style.display = 'block';
+            validateAndSubmitCheckout();
         });
+
+        if (window.location.search.includes('empty=1')) {
+            document.getElementById('card-number').value = '';
+            document.getElementById('card-cvv').value = '';
+            document.getElementById('card-expiry').value = '';
+        }
     </script>
 </body>
 </html>

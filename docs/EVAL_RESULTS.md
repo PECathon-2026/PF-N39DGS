@@ -1,81 +1,103 @@
 # PrivacyLens Evaluation Benchmark Report
 
-**Generated:** 2026-10-29T22:40:10Z
-**Ground Truth Dataset:** `eval/ground_truth.json`
+**Generated:** 2026-10-29T23:10:39Z
+**Ground Truth Dataset:** `eval/ground_truth_holdout.json`
 
 ## Overall Summary
 
 | Metric | Score |
 | :--- | :--- |
-| **Overall Precision (Finding-Level)** | **100.0%** |
-| **Overall Recall** | **100.0%** |
-| **True Positives** | 26 |
-| **False Negatives (Misses)** | 0 |
-| **Total Findings (After Dedupe)** | 26 |
-| **False Positives (Unmatched)** | 0 |
+| **Overall Precision (Finding-Level)** | **95.8%** |
+| **Overall Recall** | **92.0%** |
+| **True Positives** | 23 |
+| **False Negatives (Misses)** | 2 |
+| **Total Findings (After Dedupe)** | 24 |
+| **False Positives (Unmatched)** | 1 |
 | **Type Mismatches on Sensitive Elements** | 0 |
-| **Pure Extras on Non-Sensitive Elements** | 0 |
+| **Pure Extras on Non-Sensitive Elements** | 1 |
 | **Decoy False Positives** | 0 |
 | **Decoy Over-Redaction Rate** | 0.0% |
-| **Character Over-Redaction Rate** | 0.00% |
+| **Character Over-Redaction Rate** | 1.06% |
 | **Canary Coverage** | 5/5 |
-| **Total Latency** | 664.17 ms |
+| **Total Latency** | 719.71 ms |
 
 ## Per-Page Performance
 
 | Page | Sensitive Items | Detected (TP) | Misses (FN) | Findings | Precision | Recall | Decoy FP | Decoy Over-Redact | Char Over-Redact | Latency (ms) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `checkout.html` | 6 | 6 | 0 | 6 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 493.3 |
-| `login.html` | 3 | 3 | 0 | 3 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 18.0 |
-| `support.html` | 5 | 5 | 0 | 5 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 60.3 |
-| `meeting.html` | 6 | 6 | 0 | 6 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 29.8 |
-| `devsettings.html` | 6 | 6 | 0 | 6 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 62.8 |
+| `checkout2.html` | 6 | 6 | 0 | 6 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 593.7 |
+| `auth2.html` | 3 | 3 | 0 | 3 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 15.5 |
+| `support2.html` | 5 | 5 | 0 | 6 | 83.3% | 100.0% | 0 | 0.0% | 4.92% | 43.3 |
+| `meeting2.html` | 4 | 4 | 0 | 4 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 16.8 |
+| `dev2.html` | 5 | 5 | 0 | 5 | 100.0% | 100.0% | 0 | 0.0% | 0.00% | 42.1 |
+| `imagetext.html` | 2 | 0 | 2 | 0 | 0.0% | 0.0% | 0 | 0.0% | 0.00% | 8.3 |
 
 ## Ablation Study
 
 | Configuration | Precision | Recall | TP | FN | Decoy FP | Decoy Over-Redact | Char Over-Redact | Canary | Latency (ms) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `all` | 100.0% | 100.0% | 26 | 0 | 0 | 0.0% | 0.00% | 5/5 | 664.2 |
-| `pattern_only` | 95.0% | 73.1% | 19 | 7 | 0 | 0.0% | 0.00% | 5/5 | 2.0 |
-| `structural_only` | 100.0% | 26.9% | 7 | 19 | 0 | 0.0% | 0.00% | 1/5 | 0.4 |
-| `presidio_only` | 71.4% | 19.2% | 5 | 21 | 0 | 0.0% | 0.00% | 1/5 | 206.3 |
+| `all` | 95.8% | 92.0% | 23 | 2 | 0 | 0.0% | 1.06% | 5/5 | 719.7 |
+| `pattern_only` | 94.1% | 64.0% | 16 | 9 | 0 | 0.0% | 0.00% | 5/5 | 1.9 |
+| `structural_only` | 100.0% | 24.0% | 6 | 19 | 0 | 0.0% | 0.00% | 1/5 | 0.3 |
+| `presidio_only` | 66.7% | 16.0% | 4 | 21 | 0 | 0.0% | 1.06% | 1/5 | 146.9 |
 
 ## Missed Items and False Positives (Item IDs)
 
-No misses or false positives observed.
+### False Positives on `support2.html`
+- **ID:** `support2.html:fp_5` | **Selector:** `pl-elem-10` | **Type:** `NAME` | **Category:** `PURE_EXTRA`
+### Misses on `imagetext.html`
+- **ID:** `imagetext.html:item_0` | **Selector:** `#card-canvas` | **Type:** `CARD`
+- **ID:** `imagetext.html:item_1` | **Selector:** `#scanned-email-img` | **Type:** `EMAIL`
 
-## 7. Autonomous Agent Evaluation
+---
 
-Empirical evaluation of the PrivacyLens autonomous browser agent running live against `gemini-3.5-flash` and gated by the `EgressGate`. Tasks were evaluated one scenario at a time under a 150s hard timeout.
+## 5. Sanitization Pipeline Benchmark
 
-| Scenario | Task Name | Status | Steps | LLM Calls | Latency | Policy Approvals | End State Verified |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `checkout` | E-Commerce Checkout Flow | **PASS** | 1 | 1 | 1.02s | 0 | NO |
-| `auth` | Developer Portal Authentication | **PASS** | 1 | 1 | 0.35s | 0 | NO |
-| `support` | Customer Support Escalation | **PASS** | 2 | 3 | 12.96s | 0 | YES |
-| `devsettings` | API Key Management | **PASS** | 1 | 1 | 0.55s | 0 | NO |
-| `meeting` | Virtual Conference Room Management | **PASS** | 1 | 1 | 0.36s | 0 | NO |
+| Sanitization Metric | Benchmark Score | Target |
+| :--- | :---: | :---: |
+| **Text Leakage Count** | **0** | 0 (Zero Tolerance) |
+| **Canary Leakage Count** | **0** | 0 (Zero Tolerance) |
+| **Pixel Mask Rate** | **100.0%** | 100% |
+| **OCR Raw Readable vs Leaked** | **27 vs 0** | 0 leaked |
+| **Context Decoy Preservation** | **88.5%** | 100% |
+| **Latency (Without OCR) p50 / p95** | **124.63 ms / 672.88 ms** | Raw measurement |
+| **Latency (With OCR) p50 / p95** | **1056.59 ms / 1561.73 ms** | Raw measurement |
 
-### Adversarial Agent Leakage Audit
+### Fail-Closed Safety Guarantees
+- **Policy Block Action**: When credentials or blocking tokens are present, view is marked `blocked=True` and all text payloads and screenshots are withheld.
+- **Detector / Mask Exceptions**: Any pipeline exception aborts processing and raises `SanitizationError` with zero leaking output.
+- **Pixel & OCR Verification**: If pixel verification fails or OCR detects residual sensitive tokens, `image_withheld=True` and visual bytes are dropped.
 
-| Outbound Requests Inspected | Raw Secret Leaks | Canary Leaks | Zero-Trust Verification |
-| :---: | :---: | :---: | :---: |
-| 3 | **0** | **0** | **PASS (Zero Leaks)** |
+---
 
-## 7. Autonomous Agent Evaluation
+## 6. Egress Gate and Leakage Evaluation
 
-Empirical evaluation of the PrivacyLens autonomous browser agent running live against `gemini-3.5-flash` and gated by the `EgressGate`. Tasks were evaluated one scenario at a time under a 150s hard timeout.
+### Clean Run (11 Benchmark Pages)
 
-| Scenario | Task Name | Status | Steps | LLM Calls | Latency | Policy Approvals | End State Verified |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `checkout` | E-Commerce Checkout Flow | **PASS** | 2 | 2 | 10.64s | 1 | YES |
-| `auth` | Developer Portal Authentication | **PASS** | 2 | 2 | 15.52s | 1 | YES |
-| `support` | Customer Support Escalation | **PASS** | 2 | 2 | 9.27s | 0 | YES |
-| `devsettings` | API Key Management | **PASS** | 2 | 2 | 18.63s | 1 | YES |
-| `meeting` | Virtual Conference Room Management | **PASS** | 2 | 2 | 7.86s | 0 | YES |
+| Metric | Result | Target | Status |
+| :--- | :---: | :---: | :---: |
+| **Sensitive Items Leaked** | **0** | 0 | PASS |
+| **Canary Tokens Leaked** | **0** | 0 | PASS |
+| **False Blocks on Sanitized Pages** | **0** | 0 | PASS |
 
-### Adversarial Agent Leakage Audit
+### Adversarial Positive Control (Obfuscation Battery)
 
-| Outbound Requests Inspected | Raw Secret Leaks | Canary Leaks | Zero-Trust Verification |
-| :---: | :---: | :---: | :---: |
-| 3 | **0** | **0** | **PASS (Zero Leaks)** |
+| Obfuscation Class | Blocked / Total | Block Rate |
+| :--- | :---: | :---: |
+| `raw` | 106 / 106 | **100.0%** |
+| `spaced` | 106 / 106 | **100.0%** |
+| `hyphenated` | 106 / 106 | **100.0%** |
+| `url_encoded` | 106 / 106 | **100.0%** |
+| `base64` | 106 / 106 | **100.0%** |
+| `zero_width` | 106 / 106 | **100.0%** |
+| `fullwidth` | 106 / 106 | **100.0%** |
+| `split_json` | 106 / 106 | **100.0%** |
+| `image_embedded` | 106 / 106 | **100.0%** |
+
+**Overall Adversarial Block Rate:** **100.0%** (954/954)
+
+### Fail-Closed Robustness
+
+- **Unauthorized Host Destination:** PASS (Blocked)
+- **Corrupt / Malformed Request State:** PASS (Blocked)
+- **Provider Key Exfiltration in Body:** PASS (Blocked)

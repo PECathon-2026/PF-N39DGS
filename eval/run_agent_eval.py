@@ -1,9 +1,10 @@
 """Evaluation benchmark runner for PrivacyLens autonomous browser agent.
 
 Executes:
-1. Live Gemini-3.5-flash evaluation across 5 task scenarios (one at a time, 150s cap each).
-2. Adversarial mock leak run verifying zero sensitive data transmitted in outbound payloads.
-3. Generates report tables in docs/EVAL_RESULTS.md and eval/results/agent_results.json.
+1. Live Gemini evaluation across 5 task scenarios, 2 iterations each (150s cap per run).
+2. Strengthened multi-factor oracle validating DOM end elements AND final field states.
+3. Adversarial mock leak run across all 5 scenarios with full action recording.
+4. Generates comprehensive audit records in docs/EVAL_RESULTS.md and results JSON.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import asyncio
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -30,7 +32,8 @@ from privacylens.agent.llm import GeminiProvider
 from privacylens.agent.loop import RunResult, run_task
 from privacylens.agent.secrets import SecretStore
 from privacylens.config import get_config
-from privacylens.gateway.egress import EgressGate
+from privacylens.events import EventBus
+from privacylens.gateway.egress import EgressGate, normalize_text_variants
 
 logger = logging.getLogger(__name__)
 
@@ -44,16 +47,18 @@ async def execute_scenario(
     gate: EgressGate,
     provider: GeminiProvider,
     playwright_inst: Any,
+    iteration: int = 1,
     timeout_sec: float = 150.0,
 ) -> dict[str, Any]:
-    """Execute a single scenario under strict 150s timeout."""
+    """Execute a single scenario under strict 150s timeout with strengthened oracle."""
     s_id = scenario["id"]
     s_name = scenario["name"]
     start_url = scenario["start_url"]
     task_desc = scenario["task"]
     expected_elem = scenario.get("expected_element")
+    expected_fields = scenario.get("expected_fields", {})
 
-    print(f"\n--- Scenario: {s_name} [{s_id}] ---")
+    print(f"\n--- Scenario: {s_name} [{s_id}] (Run #{iteration}) ---")
     print(f"Goal: {task_desc}")
     print(f"URL:  {start_url}")
 
@@ -80,6 +85,7 @@ async def execute_scenario(
     page = await context.new_page()
 
     approver = ScriptedApprover(decisions=True)
+    bus = EventBus(run_id=f"eval_{s_id}_it{iteration}_{int(time.time())}")
     t0 = time.time()
     result_record: dict[str, Any] = {}
 
@@ -91,6 +97,7 @@ async def execute_scenario(
                 approver=approver,
                 llm=provider,
                 secrets=sec_store,
+                bus=bus,
                 page=page,
                 max_steps=10,
             ),
@@ -99,35 +106,62 @@ async def execute_scenario(
 
         elapsed = round(time.time() - t0, 2)
 
-        # Verify expected end-state DOM element
-        element_found = False
+        # 1. Verify expected end-state DOM element
         element_visible = False
         if expected_elem:
             try:
                 loc = page.locator(expected_elem).first
-                count = await loc.count()
-                if count > 0:
-                    element_found = True
+                if await loc.count() > 0:
                     element_visible = await loc.is_visible()
             except Exception as elem_err:
                 logger.warning("Error probing expected element %s: %s", expected_elem, elem_err)
 
-        success = run_res.status == "success" or element_visible or element_found
+        # 2. Verify field state against synthetic expected values
+        fields_valid = True
+        field_values: dict[str, str] = {}
+        if expected_fields:
+            for selector, exp_val in expected_fields.items():
+                try:
+                    cur_val = await page.locator(selector).input_value()
+                    field_values[selector] = cur_val
+                    norm_cur = str(cur_val).strip().replace("-", "").replace(" ", "").lower()
+                    norm_exp = str(exp_val).strip().replace("-", "").replace(" ", "").lower()
+                    if norm_cur != norm_exp:
+                        fields_valid = False
+                except Exception:
+                    fields_valid = False
+
+        # Query EventBus metrics
+        events = bus.get_events()
+        injection_flags = sum(1 for e in events if e.kind == "injection_flagged")
+        validator_rejections = sum(1 for e in events if e.kind == "action_rejected")
+        gate_blocks = sum(1 for e in events if e.kind == "blocked")
+        approvals_req = len(approver.recorded_requests)
+        approvals_granted = approvals_req
+
+        success = (run_res.status == "success") and element_visible and fields_valid
         print(
-            f"Result: status={run_res.status}, steps={run_res.steps}, "
-            f"calls={run_res.llm_calls}, time={elapsed}s, verified={element_visible}"
+            f"Result: status={run_res.status}, success={success}, steps={run_res.steps}, "
+            f"calls={run_res.llm_calls}, time={elapsed}s, end_elem={element_visible}, "
+            f"fields_valid={fields_valid}"
         )
 
         result_record = {
             "id": s_id,
+            "iteration": iteration,
             "name": s_name,
             "status": run_res.status,
             "success": success,
             "steps": run_res.steps,
             "llm_calls": run_res.llm_calls,
             "duration_seconds": elapsed,
-            "approvals_requested": len(approver.recorded_requests),
+            "approvals_requested": approvals_req,
+            "approvals_granted": approvals_granted,
+            "validator_rejections": validator_rejections,
+            "gate_blocks": gate_blocks,
+            "injection_flags": injection_flags,
             "end_element_verified": element_visible,
+            "fields_verified": fields_valid,
             "summary": run_res.summary,
             "error": run_res.error,
         }
@@ -136,6 +170,7 @@ async def execute_scenario(
         print(f"Scenario [{s_id}] timed out after {timeout_sec}s")
         result_record = {
             "id": s_id,
+            "iteration": iteration,
             "name": s_name,
             "status": "timeout",
             "success": False,
@@ -143,7 +178,12 @@ async def execute_scenario(
             "llm_calls": 0,
             "duration_seconds": timeout_sec,
             "approvals_requested": 0,
+            "approvals_granted": 0,
+            "validator_rejections": 0,
+            "gate_blocks": 0,
+            "injection_flags": 0,
             "end_element_verified": False,
+            "fields_verified": False,
             "summary": f"Exceeded {timeout_sec}s hard cap",
             "error": "TimeoutError",
         }
@@ -151,6 +191,7 @@ async def execute_scenario(
         print(f"Scenario [{s_id}] encountered error: {exc}")
         result_record = {
             "id": s_id,
+            "iteration": iteration,
             "name": s_name,
             "status": "error",
             "success": False,
@@ -158,7 +199,12 @@ async def execute_scenario(
             "llm_calls": 0,
             "duration_seconds": round(time.time() - t0, 2),
             "approvals_requested": 0,
+            "approvals_granted": 0,
+            "validator_rejections": 0,
+            "gate_blocks": 0,
+            "injection_flags": 0,
             "end_element_verified": False,
+            "fields_verified": False,
             "summary": "Exception raised during run",
             "error": str(exc),
         }
@@ -169,111 +215,193 @@ async def execute_scenario(
     return result_record
 
 
+SCENARIO_ACTIONS: dict[str, list[dict[str, Any]]] = {
+    "checkout": [
+        {
+            "reason": "Submitting order",
+            "action": {"action": "click", "element_id": "btn-place-order"},
+        },
+        {
+            "reason": "Finished checkout",
+            "action": {"action": "finish", "status": "success", "summary": "Order complete"},
+        },
+    ],
+    "auth": [
+        {
+            "reason": "Authenticating session",
+            "action": {"action": "click", "element_id": "btn-signin"},
+        },
+        {
+            "reason": "Finished login",
+            "action": {"action": "finish", "status": "success", "summary": "Auth complete"},
+        },
+    ],
+    "support": [
+        {
+            "reason": "Escalating ticket",
+            "action": {"action": "click", "element_id": "btn-escalate"},
+        },
+        {
+            "reason": "Finished escalation",
+            "action": {"action": "finish", "status": "success", "summary": "Ticket escalated"},
+        },
+    ],
+    "devsettings": [
+        {
+            "reason": "Rotating key",
+            "action": {"action": "click", "element_id": "btn-rotate-key"},
+        },
+        {
+            "reason": "Finished rotation",
+            "action": {"action": "finish", "status": "success", "summary": "Key rotated"},
+        },
+    ],
+    "meeting": [
+        {
+            "reason": "Admitting guest",
+            "action": {"action": "click", "element_id": "btn-admit-guest"},
+        },
+        {
+            "reason": "Finished meeting action",
+            "action": {"action": "finish", "status": "success", "summary": "Guest admitted"},
+        },
+    ],
+}
+
+
 async def run_adversarial_mock_leak_eval(
-    scenario: dict[str, Any],
+    scenarios: list[dict[str, Any]],
     gate: EgressGate,
     playwright_inst: Any,
 ) -> dict[str, Any]:
-    """Execute scenario against mock LLM server to verify zero raw values escape in payload."""
-    print("\n--- 2. Adversarial Outbound Leakage Verification ---")
+    """Execute all 5 scenarios with ScriptedLLM against mock server to verify zero leaks."""
+    print("\n--- Adversarial Outbound Leakage Verification Across 5 Scenarios ---")
     mock_server = start_mock_llm_server(port=8766)
     MockLLMHandler.recorded_requests.clear()
 
-    # Configure provider targeting mock LLM server
-    mock_provider = GeminiProvider(gate=gate)
-    mock_provider.base_url = "http://127.0.0.1:8766"
-
-    # Pre-configure mock LLM responses conforming to schema
-    mock_responses = [
-        json.dumps(
-            {
-                "reason": "Filling payment details",
-                "action": {
-                    "action": "type",
-                    "element_id": "card-number",
-                    "secret_ref": "card_number",
-                },
-            }
-        ),
-        json.dumps(
-            {
-                "reason": "Submitting order",
-                "action": {"action": "click", "element_id": "btn-place-order"},
-            }
-        ),
-        json.dumps(
-            {
-                "reason": "Finished checkout",
-                "action": {"action": "finish", "status": "success", "summary": "Done"},
-            }
-        ),
-    ]
-    mock_idx = 0
-
-    def _mock_complete(prompt: str, image: bytes | None = None) -> str:
-        nonlocal mock_idx
-        # Direct gated client call to mock server
-        url = f"{mock_provider.base_url}/models/{mock_provider.model}:generateContent"
-        headers = {
-            "x-goog-api-key": mock_provider.api_key or "fake-key",
-            "Content-Type": "application/json",
-        }
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        mock_provider._client.post(url, headers=headers, json=payload)
-        # Return canned schema completion
-        ret = mock_responses[mock_idx % len(mock_responses)]
-        mock_idx += 1
-        return ret
-
-    mock_provider.complete = _mock_complete  # type: ignore[assignment]
-
-    # Execute checkout scenario
-    sec_store = SecretStore()
-    sec_store.register("card_number", "4676336067708530", "CARD")
-    sec_store.register("card_cvv", "842", "CVV")
-
-    cfg = get_config()
-    browser = await playwright_inst.chromium.launch(
-        headless=True,
-        channel=cfg.browser.browser_channel if cfg.browser.browser_channel != "chromium" else None,
+    total_expected_calls = sum(
+        len(SCENARIO_ACTIONS[s["id"]]) for s in scenarios if s["id"] in SCENARIO_ACTIONS
     )
-    context = await browser.new_context()
-    page = await context.new_page()
+    cfg = get_config()
 
     try:
-        await run_task(
-            task="Complete checkout",
-            start_url="http://127.0.0.1:8765/checkout.html",
-            approver=ScriptedApprover(True),
-            llm=mock_provider,
-            secrets=sec_store,
-            page=page,
-            max_steps=5,
-        )
+        for sc in scenarios:
+            s_id = sc["id"]
+            if s_id not in SCENARIO_ACTIONS:
+                continue
+
+            # Configure mock provider
+            mock_provider = GeminiProvider(gate=gate)
+            mock_provider.base_url = "http://127.0.0.1:8766"
+
+            responses = SCENARIO_ACTIONS[s_id]
+            resp_idx = 0
+
+            def _mock_complete(prompt: str, image: bytes | None = None) -> str:
+                nonlocal resp_idx
+                url = f"{mock_provider.base_url}/models/{mock_provider.model}:generateContent"
+                headers = {
+                    "x-goog-api-key": mock_provider.api_key or "fake-key",
+                    "Content-Type": "application/json",
+                }
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                mock_provider._client.post(url, headers=headers, json=payload)
+                ret = json.dumps(responses[resp_idx % len(responses)])
+                resp_idx += 1
+                return ret
+
+            mock_provider.complete = _mock_complete  # type: ignore[assignment]
+
+            # Register secrets
+            sec_store = SecretStore()
+            for k, v in sc.get("secrets", {}).items():
+                sec_store.register(
+                    k,
+                    str(v.get("value", "")),
+                    str(v.get("type", "SECRET")),
+                    str(v.get("description", "")),
+                )
+
+            channel = cfg.browser.browser_channel
+            browser = await playwright_inst.chromium.launch(
+                headless=True,
+                channel=channel if channel != "chromium" else None,
+            )
+            context = await browser.new_context()
+            page = await context.new_page()
+
+            try:
+                await run_task(
+                    task=sc["task"],
+                    start_url=sc["start_url"],
+                    approver=ScriptedApprover(True),
+                    llm=mock_provider,
+                    secrets=sec_store,
+                    page=page,
+                    max_steps=5,
+                )
+            finally:
+                await context.close()
+                await browser.close()
+
     finally:
-        await context.close()
-        await browser.close()
         mock_server.shutdown()
 
-    # Analyze all recorded outbound HTTP requests
+    # Verify request count matches LLM calls
     total_recorded = len(MockLLMHandler.recorded_requests)
+    print(f"Recorded outbound calls: {total_recorded} (Expected: {total_expected_calls})")
+    assert total_recorded == total_expected_calls, (
+        f"Recorded requests ({total_recorded}) != expected calls ({total_expected_calls})"
+    )
+
+    # Collect ground-truth sensitive values to check
+    with open("eval/ground_truth.json", encoding="utf-8") as f:
+        gt_data = json.load(f)
+
+    sensitive_targets: set[str] = set()
+    for page_info in gt_data.get("pages", {}).values():
+        for item in page_info.get("sensitive_items", []):
+            val = str(item.get("value", "")).strip()
+            if val and len(val) >= 3:
+                sensitive_targets.add(val)
+    for can in gt_data.get("canaries", []):
+        if can:
+            sensitive_targets.add(str(can))
+
+    for sc in scenarios:
+        for v in sc.get("secrets", {}).values():
+            val = str(v.get("value", "")).strip()
+            if val and len(val) >= 3:
+                sensitive_targets.add(val)
+
+    # Scan all recorded requests (headers, URL, body) with multi-form normalization
     raw_secret_leaks = 0
     canary_leaks = 0
 
-    target_secrets = ["4676336067708530", "842", "CANARY-"]
-
     for req in MockLLMHandler.recorded_requests:
         body_text = req["body"].decode("utf-8", errors="ignore")
-        for s in target_secrets:
-            if s in body_text:
-                if "CANARY-" in s:
-                    canary_leaks += 1
-                else:
-                    raw_secret_leaks += 1
+        url_or_path = req.get("url") or req.get("path", "")
+        pieces = [url_or_path, body_text] + list(req["headers"].values())
+        all_norm_pieces: list[str] = []
+        for p in pieces:
+            all_norm_pieces.extend(normalize_text_variants(p))
 
-    print(f"Recorded outbound calls: {total_recorded}")
+        for piece in all_norm_pieces:
+            if "CANARY-" in piece:
+                canary_leaks += 1
+            for target in sensitive_targets:
+                if target.isdigit():
+                    if re.search(rf"(?<!\d){re.escape(target)}(?!\d)", piece):
+                        raw_secret_leaks += 1
+                else:
+                    if target in piece:
+                        raw_secret_leaks += 1
+
     print(f"Raw Secret Leaks:        {raw_secret_leaks}")
     print(f"Canary Leaks:            {canary_leaks}")
+
+    assert raw_secret_leaks == 0, f"Raw secrets leaked in outbound payloads: {raw_secret_leaks}"
+    assert canary_leaks == 0, f"Canary tokens leaked in outbound payloads: {canary_leaks}"
 
     return {
         "recorded_calls": total_recorded,
@@ -292,29 +420,34 @@ def update_eval_results_markdown(
         "\n## 7. Autonomous Agent Evaluation\n",
         (
             "Empirical evaluation of the PrivacyLens autonomous browser agent running live "
-            "against `gemini-3.5-flash` and gated by the `EgressGate`. Tasks were evaluated "
-            "one scenario at a time under a 150s hard timeout.\n"
+            "against `gemini-3.5-flash` with strengthened multi-factor oracles (end DOM element "
+            "and final field states verified). Evaluated across 2 complete iterations per scenario."
+            "\n"
         ),
         (
-            "| Scenario | Task Name | Status | Steps | LLM Calls | Latency | "
-            "Policy Approvals | End State Verified |"
+            "| Scenario | Run | Task Name | Status | Steps | LLM Calls | Latency | "
+            "Approvals (Req/Grt) | Gate Blocks | Injection Flags | Oracle Passed |"
         ),
-        "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |",
+        (
+            "| :--- | :---: | :--- | :---: | :---: | :---: | :---: | "
+            ":---: | :---: | :---: | :---: |"
+        ),
     ]
 
     for s in scenarios_results:
         status_badge = "**PASS**" if s["success"] else f"FAIL ({s['status']})"
-        verified_badge = "YES" if s["end_element_verified"] else "NO"
+        oracle_badge = "YES" if s["success"] else "NO"
+        appr_str = f"{s['approvals_requested']}/{s['approvals_granted']}"
         lines.append(
-            f"| `{s['id']}` | {s['name']} | {status_badge} | {s['steps']} | "
-            f"{s['llm_calls']} | {s['duration_seconds']}s | {s['approvals_requested']} | "
-            f"{verified_badge} |"
+            f"| `{s['id']}` | #{s['iteration']} | {s['name']} | {status_badge} | {s['steps']} | "
+            f"{s['llm_calls']} | {s['duration_seconds']}s | {appr_str} | "
+            f"{s['gate_blocks']} | {s['injection_flags']} | {oracle_badge} |"
         )
 
     clean_str = "PASS (Zero Leaks)" if leak_res["clean"] else "FAIL"
     lines.extend(
         [
-            "\n### Adversarial Agent Leakage Audit\n",
+            "\n### Adversarial Agent Leakage Audit (All 5 Scenarios)\n",
             (
                 "| Outbound Requests Inspected | Raw Secret Leaks | Canary Leaks | "
                 "Zero-Trust Verification |"
@@ -333,7 +466,7 @@ def update_eval_results_markdown(
 
 
 async def main() -> None:
-    """Run full agent evaluation suite."""
+    """Run full agent evaluation suite (2 iterations per scenario + mock leak run)."""
     print("===========================================================")
     print("      PRIVACYLENS AGENT LIVE EVALUATION BENCHMARK          ")
     print("===========================================================")
@@ -356,20 +489,22 @@ async def main() -> None:
     scenarios_results: list[dict[str, Any]] = []
 
     async with async_playwright() as playwright_inst:
-        # Run scenarios one at a time
-        for sc in scenarios:
-            rec = await execute_scenario(
-                scenario=sc,
-                gate=gate,
-                provider=provider,
-                playwright_inst=playwright_inst,
-                timeout_sec=150.0,
-            )
-            scenarios_results.append(rec)
+        # Run each scenario 2 times
+        for iteration in (1, 2):
+            for sc in scenarios:
+                rec = await execute_scenario(
+                    scenario=sc,
+                    gate=gate,
+                    provider=provider,
+                    playwright_inst=playwright_inst,
+                    iteration=iteration,
+                    timeout_sec=150.0,
+                )
+                scenarios_results.append(rec)
 
-        # 4. Adversarial Mock Leak Run
+        # 4. Adversarial Mock Leak Run across all 5 scenarios
         leak_res = await run_adversarial_mock_leak_eval(
-            scenario=scenarios[0],
+            scenarios=scenarios,
             gate=gate,
             playwright_inst=playwright_inst,
         )
@@ -379,6 +514,7 @@ async def main() -> None:
     full_output = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "model": provider.model,
+        "iterations": 2,
         "scenarios": scenarios_results,
         "leakage_audit": leak_res,
     }

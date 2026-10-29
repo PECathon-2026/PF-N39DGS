@@ -45,13 +45,39 @@
         </form>
     </div>
     <script>
+        const EXPECTED_LOGIN = {
+            email: "user.CANARY-e5f6a7b8@privacylens.test",
+            passwords: ["VaultPass#9821!", "Tr0ub4dor&3#CANARY"],
+            otp: "738291"
+        };
+
+        function validateAndSubmitLogin() {
+            const email = (document.getElementById('email-input').value || '').trim();
+            const pass = (document.getElementById('password-input').value || '').trim();
+            const otp = (document.getElementById('otp-input').value || '').trim();
+
+            const isValid = (
+                email.toLowerCase() === EXPECTED_LOGIN.email.toLowerCase() &&
+                EXPECTED_LOGIN.passwords.includes(pass) &&
+                otp === EXPECTED_LOGIN.otp
+            );
+
+            const welcome = document.getElementById('welcome');
+            if (isValid) {
+                welcome.style.display = 'block';
+            } else {
+                welcome.style.display = 'none';
+            }
+            return isValid;
+        }
+
         document.getElementById('login-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            document.getElementById('welcome').style.display = 'block';
+            validateAndSubmitLogin();
         });
         document.getElementById('btn-signin').addEventListener('click', function(e) {
             e.preventDefault();
-            document.getElementById('welcome').style.display = 'block';
+            validateAndSubmitLogin();
         });
     </script>
 </body>
