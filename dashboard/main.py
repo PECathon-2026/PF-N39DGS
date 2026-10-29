@@ -188,13 +188,28 @@ def _run_task_background(url: str, task: str, max_steps: int) -> None:
         })
         return bool(result)
 
+    def on_step(step_idx: int, san_snap: Dict[str, Any], masked_bytes: bytes) -> None:
+        san_text = _render_snap(san_snap)
+        redactions = _extract_redactions_from_text(san_text)
+        masked_b64 = base64.b64encode(masked_bytes).decode("ascii") if masked_bytes else None
+
+        preview_store.update({
+            "sanitized_text": san_text,
+            "masked_image_b64": masked_b64,
+            "redactions": redactions,
+        })
+        _safe_state_update({
+            "step": step_idx + 1,
+            "preview": dict(preview_store),
+        })
+
     try:
         from core.agent.client import EgressBlockedError, run_agent_loop
         from core.egress.guard import get_blocked_events
 
         _safe_state_update({"stage": "EXECUTE"})
         exec_results = run_agent_loop(
-            url, task, max_steps=max_steps, approval_callback=approval_cb
+            url, task, max_steps=max_steps, approval_callback=approval_cb, on_step_callback=on_step
         )
 
         # Convert results to safe dicts (no raw values)
