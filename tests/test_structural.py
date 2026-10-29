@@ -99,3 +99,19 @@ def test_structural_password_toggle_hint() -> None:
     )
     findings = detector.detect([elem])
     assert any(f.type == "PASSWORD" for f in findings)
+
+
+def test_structural_shipping_address_hint() -> None:
+    """Regression test: verify shipping and street address hints detect ADDRESS."""
+    detector = StructuralDetector()
+    elem = ElementSnapshot(
+        element_id="shipping-address",
+        tag="input",
+        name="shipping_address",
+    )
+    findings = detector.detect([elem])
+    assert len(findings) == 1
+    assert findings[0].type == "ADDRESS"
+    assert findings[0].rule_id == "dom_hint_address"
+    assert findings[0].is_structural is True
+

@@ -35,10 +35,10 @@ from privacylens.vault import Vault
 logger = logging.getLogger(__name__)
 
 _CANARY_REGEX = re.compile(r"CANARY-[A-Za-z0-9_-]+", re.IGNORECASE)
-_ZERO_WIDTH_REGEX = re.compile(r"[\u200b-\u200d\ufeff]")
+_ZERO_WIDTH_REGEX = re.compile(r"[\u200b-\u200f\u2060\ufeff]")
 _DIGIT_SEP_REGEX = re.compile(r"(?<=\d)[\s\-_]+(?=\d)")
-_BASE64_TOKEN_REGEX = re.compile(r"\b[A-Za-z0-9+/]{8,}={0,2}\b")
-_HEX_TOKEN_REGEX = re.compile(r"\b[0-9a-fA-F]{8,}\b")
+_BASE64_TOKEN_REGEX = re.compile(r"[A-Za-z0-9+/]{4,}={0,2}")
+_HEX_TOKEN_REGEX = re.compile(r"[0-9a-fA-F]{4,}")
 
 # Known image magic headers
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -126,7 +126,7 @@ def normalize_text_variants(text: str) -> list[str]:
 
     # 6. Base64 decoded tokens
     trimmed = text.strip()
-    if len(trimmed) >= 8 and len(trimmed) % 4 == 0 and re.match(r"^[A-Za-z0-9+/]+={0,2}$", trimmed):
+    if len(trimmed) >= 4 and len(trimmed) % 4 == 0 and re.match(r"^[A-Za-z0-9+/]+={0,2}$", trimmed):
         try:
             dec = base64.b64decode(trimmed).decode("utf-8")
             if dec and all(32 <= ord(c) < 127 or c in "\r\n\t" for c in dec):
@@ -134,7 +134,7 @@ def normalize_text_variants(text: str) -> list[str]:
         except Exception:
             pass
 
-    for match in re.finditer(r"[A-Za-z0-9+/]{8,}={0,2}", text):
+    for match in re.finditer(r"[A-Za-z0-9+/]{4,}={0,2}", text):
         token = match.group()
         if len(token) % 4 == 0:
             try:
@@ -148,7 +148,7 @@ def normalize_text_variants(text: str) -> list[str]:
     # 7. Hex decoded tokens
     trimmed_hex = text.strip()
     if (
-        len(trimmed_hex) >= 8
+        len(trimmed_hex) >= 4
         and len(trimmed_hex) % 2 == 0
         and re.match(r"^[0-9a-fA-F]+$", trimmed_hex)
     ):
@@ -159,7 +159,7 @@ def normalize_text_variants(text: str) -> list[str]:
         except Exception:
             pass
 
-    for match in re.finditer(r"[0-9a-fA-F]{8,}", text):
+    for match in re.finditer(r"[0-9a-fA-F]{4,}", text):
         token = match.group()
         if len(token) % 2 == 0:
             try:
@@ -429,42 +429,42 @@ class EgressGate:
         combined_text = " ".join(text_pieces)
         all_texts_to_check = text_pieces + [combined_text]
 
-        # 4. Canary Detection
+        # Collect all texts and their normalized variants
+        all_variants_to_check: list[str] = []
         for text in all_texts_to_check:
+            if text:
+                all_variants_to_check.extend(normalize_text_variants(text))
+        all_variants_to_check = list(dict.fromkeys(all_variants_to_check))
+
+        # 4. Canary Detection
+        for text in all_variants_to_check:
             if _CANARY_REGEX.search(text):
                 violations.append("canary_detected")
                 break
 
         # 5. Sensitive Entity Detection with Multi-Form Normalization
         seen_entity_violations: set[str] = set()
-        for text in all_texts_to_check:
-            if not text or len(text) < 3:
+        for variant in all_variants_to_check:
+            if not variant or len(variant) < 3:
                 continue
 
-            variants = normalize_text_variants(text)
-            for variant in variants:
-                # Check for canary in variant
-                if _CANARY_REGEX.search(variant):
-                    violations.append("canary_detected")
-
-                # Detect sensitive entities
-                findings = detect_text(variant)
-                for f in findings:
-                    if f.type == "CARD_MASKED":
+            findings = detect_text(variant)
+            for f in findings:
+                if f.type == "CARD_MASKED":
+                    continue
+                if f.type == "IP":
+                    span_text = (
+                        variant[f.start : f.end].strip()
+                        if f.start is not None and f.end is not None
+                        else ""
+                    )
+                    if span_text in {"127.0.0.1", "0.0.0.0", "::1"}:
                         continue
-                    if f.type == "IP":
-                        span_text = (
-                            variant[f.start : f.end].strip()
-                            if f.start is not None and f.end is not None
-                            else ""
-                        )
-                        if span_text in {"127.0.0.1", "0.0.0.0", "::1"}:
-                            continue
-                    v_type = f"sensitive_entity:{f.type}"
-                    if v_type not in seen_entity_violations:
-                        seen_entity_violations.add(v_type)
-                        violations.append(v_type)
-                        hash_prefixes.append(AuditLogger.compute_hash_prefix(f.type))
+                v_type = f"sensitive_entity:{f.type}"
+                if v_type not in seen_entity_violations:
+                    seen_entity_violations.add(v_type)
+                    violations.append(v_type)
+                    hash_prefixes.append(AuditLogger.compute_hash_prefix(f.type))
 
         # 6. Active Vault Cross-Check
         if self.vault is not None:
@@ -473,12 +473,25 @@ class EgressGate:
                 if not raw_val or len(raw_val) < 3:
                     continue
                 raw_lower = raw_val.lower()
-                raw_stripped = raw_lower.replace(" ", "").replace("-", "")
+                raw_stripped = (
+                    _ZERO_WIDTH_REGEX.sub("", raw_lower)
+                    .replace(" ", "")
+                    .replace("-", "")
+                )
 
-                for text in all_texts_to_check:
+                for text in all_variants_to_check:
                     text_lower = text.lower()
-                    text_stripped = text_lower.replace(" ", "").replace("-", "")
-                    if raw_lower in text_lower or raw_stripped in text_stripped:
+                    text_stripped = (
+                        _ZERO_WIDTH_REGEX.sub("", text_lower)
+                        .replace(" ", "")
+                        .replace("-", "")
+                    )
+                    text_nfkc = unicodedata.normalize("NFKC", text_stripped)
+                    if (
+                        raw_lower in text_lower
+                        or raw_stripped in text_stripped
+                        or raw_stripped in text_nfkc
+                    ):
                         v_key = f"vault_secret:{entity_type}"
                         if v_key not in seen_entity_violations:
                             seen_entity_violations.add(v_key)

@@ -162,3 +162,39 @@ def test_engine_priority_address_over_name() -> None:
     resolved = engine.resolve_findings([f_name, f_addr])
     assert len(resolved) == 1
     assert resolved[0].type == "ADDRESS"
+
+
+def test_engine_element_wide_structural_finding_preserves_none_spans() -> None:
+    """Regression test: merging structural finding with substring does not shrink span."""
+    engine = DetectionEngine(enabled_detectors=[])
+
+    f_elem_wide = Finding(
+        type="ADDRESS",
+        start=None,
+        end=None,
+        confidence=0.9,
+        source="structural",
+        rule_id="dom_hint_address",
+        element_id="shipping-address",
+        is_structural=True,
+    )
+    f_sub = Finding(
+        type="ADDRESS",
+        start=30,
+        end=41,
+        confidence=0.85,
+        source="pattern",
+        rule_id="pattern_address_snippet",
+        element_id="shipping-address",
+        is_structural=False,
+    )
+
+    resolved = engine.resolve_findings([f_elem_wide, f_sub])
+    assert len(resolved) == 1
+    merged = resolved[0]
+    assert merged.element_id == "shipping-address"
+    assert merged.start is None
+    assert merged.end is None
+    assert merged.is_structural is True
+    assert "dom_hint_address" in merged.rule_id
+
