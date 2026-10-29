@@ -59,6 +59,15 @@ class AuditConfig(BaseModel):
     log_path: Path = Path("logs/audit.jsonl")
 
 
+class DetectorsConfig(BaseModel):
+    """Detection engine configuration."""
+
+    enabled: list[str] = Field(
+        default_factory=lambda: ["pattern", "structural", "presidio", "vision"]
+    )
+    presidio_score_threshold: float = 0.4
+
+
 class PolicyConfig(BaseModel):
     """Policy engine settings."""
 
@@ -79,6 +88,7 @@ class Settings(BaseSettings):
     server: ServerConfig = Field(default_factory=ServerConfig)
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
     tesseract: TesseractConfig = Field(default_factory=TesseractConfig)
+    detectors: DetectorsConfig = Field(default_factory=DetectorsConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     audit: AuditConfig = Field(default_factory=AuditConfig)
     policy: PolicyConfig = Field(default_factory=PolicyConfig)

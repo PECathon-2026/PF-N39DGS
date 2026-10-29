@@ -13,6 +13,14 @@ browser:
 tesseract:
   tesseract_cmd: "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
 
+detectors:
+  enabled:
+    - "pattern"
+    - "structural"
+    - "presidio"
+    - "vision"
+  presidio_score_threshold: 0.4
+
 llm:
   provider: "gemini"
   model: "gemini-2.5-flash"

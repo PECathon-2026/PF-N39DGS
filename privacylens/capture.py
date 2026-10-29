@@ -7,13 +7,166 @@ from Playwright browser pages for local sanitization analysis.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from typing import Any
 
-from playwright.async_api import Browser, Playwright
+from playwright.async_api import Browser, Page, Playwright, async_playwright
 
-from privacylens.config import settings
+from privacylens.config import Settings, settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ElementSnapshot:
+    """Snapshot representation of an individual DOM element."""
+
+    element_id: str
+    tag: str
+    input_type: str | None = None
+    name: str | None = None
+    autocomplete: str | None = None
+    aria_label: str | None = None
+    associated_label_text: str | None = None
+    placeholder: str | None = None
+    visible_text: str | None = None
+    input_value: str | None = None
+    bbox: tuple[float, float, float, float] | None = None
+
+
+@dataclass
+class PageSnapshot:
+    """Complete DOM and visual snapshot of a browser page state."""
+
+    url: str
+    elements: list[ElementSnapshot] = field(default_factory=list)
+    screenshot_bytes: bytes = b""
+    page_text: str = ""
+
+
+_DOM_EXTRACT_JS = """
+() => {
+    let idCounter = 1;
+    const elements = [];
+    const interactiveTags = ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'A'];
+
+    function getLabel(el) {
+        if (el.labels && el.labels.length > 0) {
+            return Array.from(el.labels).map(l => (l.innerText || '').trim()).join(' ');
+        }
+        if (el.id) {
+            const lbl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+            if (lbl && lbl.innerText) return lbl.innerText.trim();
+        }
+        const parentLabel = el.closest('label');
+        if (parentLabel && parentLabel.innerText) return parentLabel.innerText.trim();
+        return null;
+    }
+
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+
+    const all = document.querySelectorAll('*');
+    for (const el of all) {
+        const tag = el.tagName.toUpperCase();
+        const isInteractive = interactiveTags.includes(tag) ||
+            el.getAttribute('role') === 'button' ||
+            el.hasAttribute('onclick');
+
+        const containerTags = [
+            'HTML', 'BODY', 'FORM', 'HEADER', 'MAIN', 'SECTION', 'NAV', 'FOOTER'
+        ];
+        const isContainer = containerTags.includes(tag);
+        const hasText = el.innerText && el.innerText.trim().length > 0;
+        const isLeafText = !isContainer && el.children.length === 0 && hasText;
+
+        if (isInteractive || isLeafText || tag === 'IMG' || tag === 'SVG') {
+            let elId = el.id;
+            if (!elId) {
+                elId = el.getAttribute('data-pl-id');
+                if (!elId) {
+                    elId = 'pl-elem-' + (idCounter++);
+                    el.setAttribute('data-pl-id', elId);
+                }
+            }
+
+            const rect = el.getBoundingClientRect();
+            const bbox = (rect.width > 0 && rect.height > 0) ? [
+                rect.top + scrollY,
+                rect.left + scrollX,
+                rect.bottom + scrollY,
+                rect.right + scrollX
+            ] : null;
+
+            elements.push({
+                element_id: elId,
+                tag: tag.toLowerCase(),
+                input_type: el.type || el.getAttribute('type') || null,
+                name: el.name || el.getAttribute('name') || null,
+                autocomplete: el.getAttribute('autocomplete') || null,
+                aria_label: el.getAttribute('aria-label') || null,
+                associated_label_text: getLabel(el),
+                placeholder: el.placeholder || el.getAttribute('placeholder') || null,
+                visible_text: isLeafText ? el.innerText.trim() : (el.innerText || null),
+                input_value: (el.value !== undefined) ? el.value : null,
+                bbox: bbox
+            });
+        }
+    }
+    return elements;
+}
+"""
+
+_RANGE_BBOX_JS = """
+([selector, start, end]) => {
+    let el = null;
+    try {
+        el = document.querySelector(selector);
+    } catch (e) {}
+    if (!el) {
+        el = document.getElementById(selector) ||
+            document.querySelector(`[data-pl-id="${selector}"]`);
+    }
+    if (!el) return null;
+
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    let currentOffset = 0;
+    let node;
+    let startNode = null, startNodeOffset = 0;
+    let endNode = null, endNodeOffset = 0;
+
+    while ((node = walker.nextNode())) {
+        const len = node.nodeValue.length;
+        if (!startNode && currentOffset + len >= start) {
+            startNode = node;
+            startNodeOffset = start - currentOffset;
+        }
+        if (!endNode && currentOffset + len >= end) {
+            endNode = node;
+            endNodeOffset = end - currentOffset;
+            break;
+        }
+        currentOffset += len;
+    }
+
+    if (!startNode || !endNode) return null;
+
+    try {
+        const range = document.createRange();
+        range.setStart(startNode, startNodeOffset);
+        range.setEnd(endNode, endNodeOffset);
+        const rects = range.getClientRects();
+        if (rects.length === 0) return null;
+
+        const r = rects[0];
+        const scrollX = window.scrollX || window.pageXOffset || 0;
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+        return [r.top + scrollY, r.left + scrollX, r.bottom + scrollY, r.right + scrollX];
+    } catch (e) {
+        return null;
+    }
+}
+"""
 
 
 async def launch_browser(
@@ -39,6 +192,106 @@ async def launch_browser(
     return await playwright.chromium.launch(headless=headless, channel=selected_channel)
 
 
+async def get_text_range_bbox(
+    page: Page,
+    element_id_or_selector: str,
+    start: int,
+    end: int,
+) -> tuple[float, float, float, float] | None:
+    """Compute bounding box for a character sub-range inside an element text node.
+
+    Args:
+        page: Playwright Page instance.
+        element_id_or_selector: DOM ID or CSS selector of parent element.
+        start: Start character index.
+        end: End character index.
+
+    Returns:
+        Bounding box tuple (ymin, xmin, ymax, xmax) or None if not resolveable.
+    """
+    res = await page.evaluate(_RANGE_BBOX_JS, [element_id_or_selector, start, end])
+    if res and len(res) == 4:
+        return (float(res[0]), float(res[1]), float(res[2]), float(res[3]))
+    return None
+
+
+async def capture_async(
+    url: str,
+    app_settings: Settings | None = None,
+    page: Page | None = None,
+) -> PageSnapshot:
+    """Capture complete DOM element metadata and full-page screenshot asynchronously.
+
+    Args:
+        url: URL of page to load and inspect.
+        app_settings: Optional application settings. Defaults to global settings.
+        page: Existing Playwright Page instance if reusing context.
+
+    Returns:
+        Populated PageSnapshot instance.
+    """
+    cfg = app_settings or settings
+    channel = cfg.browser.browser_channel
+
+    async def _capture_from_page(p: Page) -> PageSnapshot:
+        await p.goto(url, wait_until="load")
+        raw_elements: list[dict[str, Any]] = await p.evaluate(_DOM_EXTRACT_JS)
+        screenshot = await p.screenshot(full_page=True)
+        page_text = await p.evaluate("() => document.body ? document.body.innerText : ''")
+
+        elements: list[ElementSnapshot] = []
+        for raw in raw_elements:
+            bbox_raw = raw.get("bbox")
+            bbox = None
+            if bbox_raw and len(bbox_raw) == 4:
+                bbox = (
+                    float(bbox_raw[0]),
+                    float(bbox_raw[1]),
+                    float(bbox_raw[2]),
+                    float(bbox_raw[3]),
+                )
+            elements.append(
+                ElementSnapshot(
+                    element_id=raw["element_id"],
+                    tag=raw["tag"],
+                    input_type=raw.get("input_type"),
+                    name=raw.get("name"),
+                    autocomplete=raw.get("autocomplete"),
+                    aria_label=raw.get("aria_label"),
+                    associated_label_text=raw.get("associated_label_text"),
+                    placeholder=raw.get("placeholder"),
+                    visible_text=raw.get("visible_text"),
+                    input_value=raw.get("input_value"),
+                    bbox=bbox,
+                )
+            )
+
+        return PageSnapshot(
+            url=url,
+            elements=elements,
+            screenshot_bytes=screenshot,
+            page_text=page_text,
+        )
+
+    if page:
+        return await _capture_from_page(page)
+
+    async with async_playwright() as p:
+        browser = await launch_browser(p, channel=channel)
+        p_inst = await browser.new_page(viewport={"width": 1280, "height": 900})
+        try:
+            return await _capture_from_page(p_inst)
+        finally:
+            await browser.close()
+
+
+def capture(url: str, config: Settings | None = None) -> PageSnapshot:
+    """Synchronous entrypoint to capture a PageSnapshot from a target URL."""
+    import asyncio
+
+    return asyncio.run(capture_async(url, app_settings=config))
+
+
 class ScreenCapture:
     """Captures page screenshots and DOM element bounding boxes."""
 
@@ -47,15 +300,6 @@ class ScreenCapture:
         self.browser_channel = browser_channel or settings.browser.browser_channel
         logger.debug("ScreenCapture initialized with channel '%s'", self.browser_channel)
 
-    async def capture_page_state(self, page: Any) -> dict[str, Any]:
-        """Capture DOM text and screenshots for sanitization.
-
-        Args:
-            page: Playwright Page instance.
-
-        Returns:
-            Dictionary containing DOM text, element maps, and screenshot buffer.
-        """
-        # Documented stub to be implemented
-        logger.info("Capturing page state from browser page")
-        return {"dom": "", "screenshot": None}
+    async def capture_page_state(self, page: Page) -> PageSnapshot:
+        """Capture DOM text and screenshots for sanitization."""
+        return await capture_async(page.url, page=page)
