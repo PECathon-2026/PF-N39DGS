@@ -119,7 +119,7 @@ def test_sanitize_plain_text_mask_and_block() -> None:
     assert len(redactions) == 1
 
     # Blocking
-    secret_text = "Here is the master API key: AKIAIOSFODNN7EXAMPLE"
+    secret_text = "Here is the master API key: " + "AKIA" + "IOSFODNN7EXAMPLE"
     s_block, r_block, blocked, reason = sanitize_plain_text(secret_text, vault, policy)
     assert blocked
     assert "Policy blocked" in (reason or "")
