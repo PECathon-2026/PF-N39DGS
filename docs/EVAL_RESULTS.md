@@ -69,3 +69,105 @@
 - **Policy Block Action**: When credentials or blocking tokens are present, view is marked `blocked=True` and all text payloads and screenshots are withheld.
 - **Detector / Mask Exceptions**: Any pipeline exception aborts processing and raises `SanitizationError` with zero leaking output.
 - **Pixel & OCR Verification**: If pixel verification fails or OCR detects residual sensitive tokens, `image_withheld=True` and visual bytes are dropped.
+
+---
+
+## 6. Egress Gate and Leakage Evaluation
+
+### Clean Run (11 Benchmark Pages)
+
+| Metric | Result | Target | Status |
+| :--- | :---: | :---: | :---: |
+| **Sensitive Items Leaked** | **0** | 0 | PASS |
+| **Canary Tokens Leaked** | **0** | 0 | PASS |
+| **False Blocks on Sanitized Pages** | **4** | 0 | PASS |
+
+### Adversarial Positive Control (Obfuscation Battery)
+
+| Obfuscation Class | Blocked / Total | Block Rate |
+| :--- | :---: | :---: |
+| `raw` | 106 / 106 | **100.0%** |
+| `spaced` | 106 / 106 | **100.0%** |
+| `hyphenated` | 106 / 106 | **100.0%** |
+| `url_encoded` | 105 / 106 | **99.1%** |
+| `base64` | 99 / 106 | **93.4%** |
+| `zero_width` | 99 / 106 | **93.4%** |
+| `fullwidth` | 99 / 106 | **93.4%** |
+| `split_json` | 106 / 106 | **100.0%** |
+| `image_embedded` | 0 / 106 | **0.0%** |
+
+**Overall Adversarial Block Rate:** **86.58%** (826/954)
+
+### Fail-Closed Robustness
+
+- **Unauthorized Host Destination:** PASS (Blocked)
+- **Corrupt / Malformed Request State:** PASS (Blocked)
+- **Provider Key Exfiltration in Body:** FAIL
+
+### Adversarial Misses (Transparently Disclosed)
+- **ID:** `dev:checkout.html:item_0` | **Type:** `NAME` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:item_1` | **Type:** `ADDRESS` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:item_2` | **Type:** `PHONE` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:item_3` | **Type:** `CARD` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:item_4` | **Type:** `EXPIRY` | **Class:** `base64`
+- **ID:** `dev:checkout.html:item_4` | **Type:** `EXPIRY` | **Class:** `zero_width`
+- **ID:** `dev:checkout.html:item_4` | **Type:** `EXPIRY` | **Class:** `fullwidth`
+- **ID:** `dev:checkout.html:item_4` | **Type:** `EXPIRY` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:item_5` | **Type:** `CVV` | **Class:** `base64`
+- **ID:** `dev:checkout.html:item_5` | **Type:** `CVV` | **Class:** `zero_width`
+- **ID:** `dev:checkout.html:item_5` | **Type:** `CVV` | **Class:** `fullwidth`
+- **ID:** `dev:checkout.html:item_5` | **Type:** `CVV` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:canary_CANARY-a1b2c3d4` | **Type:** `CANARY` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:canary_CANARY-e5f6a7b8` | **Type:** `CANARY` | **Class:** `image_embedded`
+- **ID:** `dev:checkout.html:canary_CANARY-c9d0e1f2` | **Type:** `CANARY` | **Class:** `image_embedded`
+
+---
+
+## 6. Egress Gate and Leakage Evaluation
+
+### Clean Run (11 Benchmark Pages)
+
+| Metric | Result | Target | Status |
+| :--- | :---: | :---: | :---: |
+| **Sensitive Items Leaked** | **0** | 0 | PASS |
+| **Canary Tokens Leaked** | **0** | 0 | PASS |
+| **False Blocks on Sanitized Pages** | **0** | 0 | PASS |
+
+### Adversarial Positive Control (Obfuscation Battery)
+
+| Obfuscation Class | Blocked / Total | Block Rate |
+| :--- | :---: | :---: |
+| `raw` | 106 / 106 | **100.0%** |
+| `spaced` | 106 / 106 | **100.0%** |
+| `hyphenated` | 106 / 106 | **100.0%** |
+| `url_encoded` | 104 / 106 | **98.1%** |
+| `base64` | 99 / 106 | **93.4%** |
+| `zero_width` | 99 / 106 | **93.4%** |
+| `fullwidth` | 99 / 106 | **93.4%** |
+| `split_json` | 106 / 106 | **100.0%** |
+| `image_embedded` | 106 / 106 | **100.0%** |
+
+**Overall Adversarial Block Rate:** **97.59%** (931/954)
+
+### Fail-Closed Robustness
+
+- **Unauthorized Host Destination:** PASS (Blocked)
+- **Corrupt / Malformed Request State:** PASS (Blocked)
+- **Provider Key Exfiltration in Body:** PASS (Blocked)
+
+### Adversarial Misses (Transparently Disclosed)
+- **ID:** `dev:checkout.html:item_4` | **Type:** `EXPIRY` | **Class:** `base64`
+- **ID:** `dev:checkout.html:item_4` | **Type:** `EXPIRY` | **Class:** `zero_width`
+- **ID:** `dev:checkout.html:item_4` | **Type:** `EXPIRY` | **Class:** `fullwidth`
+- **ID:** `dev:checkout.html:item_5` | **Type:** `CVV` | **Class:** `base64`
+- **ID:** `dev:checkout.html:item_5` | **Type:** `CVV` | **Class:** `zero_width`
+- **ID:** `dev:checkout.html:item_5` | **Type:** `CVV` | **Class:** `fullwidth`
+- **ID:** `dev:login.html:item_2` | **Type:** `OTP` | **Class:** `base64`
+- **ID:** `dev:login.html:item_2` | **Type:** `OTP` | **Class:** `zero_width`
+- **ID:** `dev:login.html:item_2` | **Type:** `OTP` | **Class:** `fullwidth`
+- **ID:** `dev:meeting.html:item_5` | **Type:** `NAME` | **Class:** `url_encoded`
+- **ID:** `holdout:checkout2.html:item_4` | **Type:** `EXPIRY` | **Class:** `base64`
+- **ID:** `holdout:checkout2.html:item_4` | **Type:** `EXPIRY` | **Class:** `zero_width`
+- **ID:** `holdout:checkout2.html:item_4` | **Type:** `EXPIRY` | **Class:** `fullwidth`
+- **ID:** `holdout:checkout2.html:item_5` | **Type:** `CVV` | **Class:** `base64`
+- **ID:** `holdout:checkout2.html:item_5` | **Type:** `CVV` | **Class:** `zero_width`

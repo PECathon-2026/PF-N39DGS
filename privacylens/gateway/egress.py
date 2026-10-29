@@ -112,12 +112,15 @@ def normalize_text_variants(text: str) -> list[str]:
         variants.append(zw_stripped)
 
     # 5. Digit separator collapsed (spaces/hyphens between digits)
-    dig_collapsed = _DIGIT_SEP_REGEX.sub("", text)
+    # Exclude standard ISO-8601 dates (e.g. 2026-10-29) from being collapsed into phone numbers
+    text_no_dates = re.sub(r"\b\d{4}-\d{2}-\d{2}\b", " ", text)
+    dig_collapsed = _DIGIT_SEP_REGEX.sub("", text_no_dates)
     if dig_collapsed != text:
         variants.append(dig_collapsed)
 
     # Combined zero-width + digit-separator
-    zw_dig = _DIGIT_SEP_REGEX.sub("", zw_stripped)
+    zw_no_dates = re.sub(r"\b\d{4}-\d{2}-\d{2}\b", " ", zw_stripped)
+    zw_dig = _DIGIT_SEP_REGEX.sub("", zw_no_dates)
     if zw_dig not in variants:
         variants.append(zw_dig)
 
@@ -334,11 +337,16 @@ class EgressGate:
             violations.append(f"unauthorized_host:{dest_host}")
 
         # 2. Provider Key Confinement Check
-        # Check GEMINI_API_KEY from environment
+        # Check GEMINI_API_KEY from environment or auth headers
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
         provider_keys: list[str] = []
         if gemini_key and len(gemini_key) >= 8:
             provider_keys.append(gemini_key)
+
+        for h_k, h_v in request.headers.items():
+            if h_k.lower() == "x-goog-api-key" and h_v and len(h_v) >= 8:
+                if h_v not in provider_keys:
+                    provider_keys.append(h_v)
 
         for p_key in provider_keys:
             # Must NOT appear in path

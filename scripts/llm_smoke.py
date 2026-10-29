@@ -117,6 +117,8 @@ def main() -> None:
     print("\nSanitizing checkout.html for live reasoning...")
     try:
         prompt_text, image_png = asyncio.run(get_sanitized_checkout_view())
+        if image_png:
+            gate.register_sanitized_image(image_png)
     except Exception as exc:
         print(f"Error capturing/sanitizing checkout page: {exc}")
         return

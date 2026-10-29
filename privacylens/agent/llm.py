@@ -160,8 +160,6 @@ class GeminiProvider(LLMProvider):
         parts: list[dict[str, Any]] = [{"text": prompt}]
 
         if image:
-            # Register sanitized image with gate before outbound transmission
-            self.gate.register_sanitized_image(image)
             b64_img = base64.b64encode(image).decode("utf-8")
             parts.append(
                 {

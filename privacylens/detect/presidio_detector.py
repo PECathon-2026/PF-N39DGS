@@ -96,6 +96,14 @@ _UI_NON_NAME_WORDS = {
     "APPLICATION",
     "MULTIPART",
     "FORM",
+    "SECRET",
+    "SECRETS",
+    "KEY",
+    "KEYS",
+    "ARCHIVE",
+    "DOCUMENT",
+    "DOCUMENTS",
+    "API",
 }
 
 _SINGLETON_ANALYZER: AnalyzerEngine | None = None
