@@ -104,6 +104,15 @@ class Vault:
 
         return raw_value
 
+    def has_placeholder(self, placeholder: str) -> bool:
+        """Check whether a placeholder exists and is active in the vault."""
+        if placeholder not in self._token_to_entry:
+            return False
+        if self._ttl_seconds is None:
+            return True
+        _, _, created_at = self._token_to_entry[placeholder]
+        return (time.time() - created_at) <= self._ttl_seconds
+
     def get_active_secrets(self) -> list[tuple[str, str]]:
         """Return list of (entity_type, raw_value) for active non-expired tokens.
 

@@ -88,6 +88,29 @@ class EgressConfig(BaseModel):
     on_image_check_failure: Literal["block", "drop_image"] = "block"
 
 
+class AgentConfig(BaseModel):
+    """Agent loop and action validation configuration."""
+
+    allowed_hosts: list[str] = Field(
+        default_factory=lambda: [
+            "127.0.0.1",
+            "localhost",
+        ]
+    )
+    max_steps: int = 12
+
+
+class SecretsConfig(BaseModel):
+    """Synthetic secrets resolution configuration."""
+
+    allowed_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://127.0.0.1:8765",
+            "http://localhost:8765",
+        ]
+    )
+
+
 class Settings(BaseSettings):
     """Main application settings loaded from environment and config.yaml."""
 
@@ -107,6 +130,8 @@ class Settings(BaseSettings):
     audit: AuditConfig = Field(default_factory=AuditConfig)
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     egress: EgressConfig = Field(default_factory=EgressConfig)
+    agent: AgentConfig = Field(default_factory=AgentConfig)
+    secrets: SecretsConfig = Field(default_factory=SecretsConfig)
 
     @classmethod
     def load(cls, config_path: str | Path = "config.yaml") -> Settings:
