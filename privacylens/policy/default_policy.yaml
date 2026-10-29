@@ -1,0 +1,49 @@
+version: "1.0"
+
+entities:
+  CARD:
+    action: "mask"
+    description: "Payment card numbers (Luhn valid 13-19 digits)"
+  AADHAAR:
+    action: "mask"
+    description: "Indian national identity 12-digit number (Verhoeff valid)"
+  PAN:
+    action: "mask"
+    description: "Indian Permanent Account Number (Income Tax)"
+  PASSWORD:
+    action: "block"
+    description: "Authentication passwords and credentials"
+  OTP:
+    action: "block"
+    description: "One-time passwords and verification codes"
+  EMAIL:
+    action: "mask"
+    description: "Personal and corporate email addresses"
+  PHONE:
+    action: "mask"
+    description: "International and domestic phone numbers"
+  API_KEY:
+    action: "block"
+    description: "Cloud and service API secret tokens"
+  IP:
+    action: "mask"
+    description: "IPv4 and IPv6 network addresses"
+  FACE:
+    action: "mask"
+    description: "Human facial imagery in screen captures"
+
+approval_required:
+  actions:
+    - type: "click"
+      selectors:
+        - "*[id*='pay' i]"
+        - "*[id*='delete' i]"
+        - "*[id*='submit' i]"
+        - "*[id*='order' i]"
+        - "button[type='submit']"
+      reason: "High-impact financial or irreversible user transaction"
+    - type: "fill"
+      selectors:
+        - "input[type='password']"
+      reason: "Credential entry requires manual user authorization"
+

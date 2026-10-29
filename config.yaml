@@ -1,0 +1,25 @@
+app:
+  name: "PrivacyLens"
+  version: "0.1.0"
+  env: "development"
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+
+browser:
+  browser_channel: "chromium"
+
+tesseract:
+  tesseract_cmd: "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+
+llm:
+  provider: "gemini"
+  model: "gemini-2.5-flash"
+  temperature: 0.0
+
+audit:
+  log_path: "logs/audit.jsonl"
+
+policy:
+  policy_path: "privacylens/policy/default_policy.yaml"

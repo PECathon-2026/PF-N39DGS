@@ -218,3 +218,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# PrivacyLens
+.env
+.venv/
+eval/screens/
+eval/results/
+logs/
+__pycache__/
+*.log
+.ruff_cache/

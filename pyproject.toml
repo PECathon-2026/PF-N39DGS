@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "privacylens"
+version = "0.1.0"
+description = "Privacy-preserving AI browser agent and sanitization engine"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "PrivacyLens Team" }
+]
+dependencies = [
+    "playwright",
+    "presidio-analyzer",
+    "presidio-anonymizer",
+    "pillow",
+    "opencv-python",
+    "pytesseract",
+    "pyyaml",
+    "pydantic",
+    "pydantic-settings",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "google-genai",
+    "python-dotenv",
+]
+
+[project.scripts]
+privacylens = "privacylens.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["privacylens*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+ignore = []
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q -m \"not slow\""
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+]
+

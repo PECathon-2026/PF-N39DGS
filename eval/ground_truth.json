@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "canaries": [
+    { "id": "CANARY-a1b2c3d4", "page": "checkout.html", "target": "shipping-address" },
+    { "id": "CANARY-e5f6a7b8", "page": "login.html", "target": "email-input" },
+    { "id": "CANARY-c9d0e1f2", "page": "support.html", "target": "ticket-notes" },
+    { "id": "CANARY-3b4c5d6e", "page": "meeting.html", "target": "participant-1-email" },
+    { "id": "CANARY-7f8a9b0c", "page": "devsettings.html", "target": "openai-api-key" }
+  ],
+  "pages": {
+    "checkout.html": {
+      "url": "http://127.0.0.1:8765/checkout.html",
+      "sensitive_items": [
+        { "value": "Alex Rivera", "type": "NAME", "selector": "#customer-name" },
+        { "value": "742 Evergreen Terrace, Suite CANARY-a1b2c3d4, Springfield, OR 97477", "type": "ADDRESS", "selector": "#shipping-address" },
+        { "value": "+1-555-839-2041", "type": "PHONE", "selector": "#phone-number" },
+        { "value": "4676336067708530", "type": "CARD", "selector": "#card-number" },
+        { "value": "08/28", "type": "EXPIRY", "selector": "#card-expiry" },
+        { "value": "842", "type": "CVV", "selector": "#card-cvv" }
+      ],
+      "decoys": [
+        { "value": "987654321013", "type": "ORDER_ID", "selector": "#order-id", "reason": "12-digit order number that fails Verhoeff checksum" },
+        { "value": "9999888877776660", "type": "TRACKING_NUMBER", "selector": "#tracking-number", "reason": "16-digit tracking number that fails Luhn checksum" },
+        { "value": "$149.99", "type": "CURRENCY", "selector": ".order-summary p", "reason": "Public price amount" }
+      ]
+    },
+    "login.html": {
+      "url": "http://127.0.0.1:8765/login.html",
+      "sensitive_items": [
+        { "value": "user.CANARY-e5f6a7b8@privacylens.test", "type": "EMAIL", "selector": "#email-input" },
+        { "value": "VaultPass#9821!", "type": "PASSWORD", "selector": "#password-input" },
+        { "value": "738291", "type": "OTP", "selector": "#otp-input" }
+      ],
+      "decoys": [
+        { "value": "Corporate Auth", "type": "HEADING", "selector": "h2", "reason": "Portal title" },
+        { "value": "Sign in", "type": "BUTTON_LABEL", "selector": "#btn-signin", "reason": "Standard form action label" },
+        { "value": "Forgot password?", "type": "LINK", "selector": "#link-forgot-password", "reason": "Public navigation link" }
+      ]
+    },
+    "support.html": {
+      "url": "http://127.0.0.1:8765/support.html",
+      "sensitive_items": [
+        { "value": "customer.care@enterprise-client.org", "type": "EMAIL", "selector": "#customer-email" },
+        { "value": "+91-98765-43210", "type": "PHONE", "selector": "#customer-phone" },
+        { "value": "Customer submitted verification documents under reference CANARY-c9d0e1f2 for national compliance approval.", "type": "NOTE_WITH_CANARY", "selector": "#ticket-notes" },
+        { "value": "585708393474", "type": "AADHAAR", "selector": "#chat-message-private" },
+        { "value": "ABCPE1234F", "type": "PAN", "selector": "#chat-message-private" }
+      ],
+      "decoys": [
+        { "value": "TIC-837492", "type": "TICKET_ID", "selector": "#ticket-id", "reason": "Generic support ticket ID" },
+        { "value": "Identity Compliance", "type": "DEPARTMENT", "selector": "#department", "reason": "Operational department title" },
+        { "value": "Representative Priya", "type": "AGENT_NAME", "selector": "#agent-name", "reason": "Public support representative handle" },
+        { "value": "2026-10-29 10:14:00 UTC", "type": "TIMESTAMP", "selector": "#timestamp", "reason": "Audit timestamp" }
+      ]
+    },
+    "meeting.html": {
+      "url": "http://127.0.0.1:8765/meeting.html",
+      "sensitive_items": [
+        { "value": "sarah.CANARY-3b4c5d6e@company.internal", "type": "EMAIL", "selector": "#participant-1-email" },
+        { "value": "Sarah Jenkins", "type": "NAME", "selector": "#participant-1-name" },
+        { "value": "liam.chen@company.internal", "type": "EMAIL", "selector": "#participant-2-email" },
+        { "value": "Liam Chen", "type": "NAME", "selector": "#participant-2-name" },
+        { "value": "amina.diallo@company.internal", "type": "EMAIL", "selector": "#participant-3-email" },
+        { "value": "Amina Diallo", "type": "NAME", "selector": "#participant-3-name" }
+      ],
+      "decoys": [
+        { "value": "Engineering Weekly Architecture Sync", "type": "MEETING_TITLE", "selector": "#meeting-title", "reason": "Public calendar invite title" },
+        { "value": "ROOM-SYN-8842", "type": "ROOM_ID", "selector": "#room-id", "reason": "Conference room identifier" },
+        { "value": "avatar-1", "type": "AVATAR_PLACEHOLDER", "selector": "#avatar-1", "reason": "Geometric placeholder graphic, not a human face" },
+        { "value": "avatar-2", "type": "AVATAR_PLACEHOLDER", "selector": "#avatar-2", "reason": "Geometric placeholder graphic, not a human face" },
+        { "value": "avatar-3", "type": "AVATAR_PLACEHOLDER", "selector": "#avatar-3", "reason": "Geometric placeholder graphic, not a human face" }
+      ]
+    },
+    "devsettings.html": {
+      "url": "http://127.0.0.1:8765/devsettings.html",
+      "sensitive_items": [
+        { "value": "sk-live-CANARY-7f8a9b0c-998877665544", "type": "API_KEY", "selector": "#openai-api-key" },
+        { "value": "AKIAIOSFODNN7EXAMPLE", "type": "API_KEY", "selector": "#aws-access-key" },
+        { "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFsaWNlIFRlc3RlciIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", "type": "JWT", "selector": "#auth-jwt" },
+        { "value": "tok_sec_99a8b7c6d5e4f3", "type": "TOKEN", "selector": "#session-token" },
+        { "value": "192.168.1.105", "type": "IP", "selector": "#server-ip-primary" },
+        { "value": "203.0.113.195", "type": "IP", "selector": "#server-ip-public" }
+      ],
+      "decoys": [
+        { "value": "us-west-prod-01", "type": "CLUSTER", "selector": "#cluster-name", "reason": "Region cluster label" },
+        { "value": "v2.14.0", "type": "VERSION", "selector": "#env-version", "reason": "Semantic release version" },
+        { "value": "build-89421", "type": "BUILD_ID", "selector": "#build-id", "reason": "Pipeline build number" }
+      ]
+    }
+  }
+}
+

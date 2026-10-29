@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Global Video Sync - Room #771</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #0f172a; color: white; display: flex; flex-direction: column; height: 100vh; }
+        .top-bar { padding: 14px 24px; background: #1e293b; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .grid-container { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 24px; box-sizing: border-box; }
+        .video-tile { background: #1e293b; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: 2px solid #334155; overflow: hidden; }
+        .avatar-box { width: 120px; height: 120px; border-radius: 50%; overflow: hidden; margin-bottom: 16px; background: #334155; display: flex; align-items: center; justify-content: center; }
+        .avatar-box svg { width: 100%; height: 100%; }
+        .participant-info { text-align: center; }
+        .participant-name { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+        .participant-email { font-size: 13px; color: #94a3b8; }
+        .controls-bar { background: #1e293b; padding: 16px; display: flex; justify-content: center; gap: 16px; border-top: 1px solid #334155; }
+        .btn-ctrl { background: #334155; color: white; border: none; padding: 10px 18px; border-radius: 20px; font-weight: 500; cursor: pointer; }
+        .btn-ctrl.danger { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <h2 id="meeting-title" style="margin: 0; font-size: 18px;">Engineering Weekly Architecture Sync</h2>
+        <span>Room ID: <strong id="room-id">ROOM-SYN-8842</strong></span>
+    </div>
+
+    <div class="grid-container">
+        <!-- Tile 1 -->
+        <div class="video-tile" id="tile-participant-1">
+            <div class="avatar-box" id="avatar-1">
+                <!-- Abstract geometric placeholder avatar -->
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100" height="100" fill="#3b82f6"/>
+                    <circle cx="50" cy="40" r="22" fill="#93c5fd"/>
+                    <ellipse cx="50" cy="85" rx="35" ry="25" fill="#1d4ed8"/>
+                </svg>
+            </div>
+            <div class="participant-info">
+                <div class="participant-name" id="participant-1-name">Sarah Jenkins</div>
+                <div class="participant-email" id="participant-1-email">sarah.CANARY-3b4c5d6e@company.internal</div>
+            </div>
+        </div>
+
+        <!-- Tile 2 -->
+        <div class="video-tile" id="tile-participant-2">
+            <div class="avatar-box" id="avatar-2">
+                <!-- Abstract geometric placeholder avatar -->
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100" height="100" fill="#10b981"/>
+                    <circle cx="50" cy="40" r="22" fill="#a7f3d0"/>
+                    <ellipse cx="50" cy="85" rx="35" ry="25" fill="#047857"/>
+                </svg>
+            </div>
+            <div class="participant-info">
+                <div class="participant-name" id="participant-2-name">Liam Chen</div>
+                <div class="participant-email" id="participant-2-email">liam.chen@company.internal</div>
+            </div>
+        </div>
+
+        <!-- Tile 3 -->
+        <div class="video-tile" id="tile-participant-3">
+            <div class="avatar-box" id="avatar-3">
+                <!-- Abstract geometric placeholder avatar -->
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100" height="100" fill="#f59e0b"/>
+                    <circle cx="50" cy="40" r="22" fill="#fde68a"/>
+                    <ellipse cx="50" cy="85" rx="35" ry="25" fill="#b45309"/>
+                </svg>
+            </div>
+            <div class="participant-info">
+                <div class="participant-name" id="participant-3-name">Amina Diallo</div>
+                <div class="participant-email" id="participant-3-email">amina.diallo@company.internal</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-bar">
+        <button type="button" id="btn-mute" class="btn-ctrl">Mute Mic</button>
+        <button type="button" id="btn-camera" class="btn-ctrl">Toggle Camera</button>
+        <button type="button" id="btn-leave-meeting" class="btn-ctrl danger">Leave Meeting</button>
+    </div>
+</body>
+</html>
+

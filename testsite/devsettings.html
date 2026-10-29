@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Developer Security Settings - Cloud Platform</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
+        .container { max-width: 850px; margin: 0 auto; background: white; padding: 32px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
+        .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; background: #f1f5f9; padding: 16px; border-radius: 6px; }
+        .meta-item strong { display: block; font-size: 12px; color: #64748b; text-transform: uppercase; }
+        .meta-item span { font-size: 14px; font-weight: 600; }
+        .section { margin-bottom: 28px; }
+        .section h3 { margin-bottom: 12px; color: #334155; }
+        .key-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 10px; }
+        .key-info { flex: 1; margin-right: 16px; word-break: break-all; }
+        .key-label { font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+        .key-value { font-family: monospace; font-size: 13px; background: #e2e8f0; padding: 4px 8px; border-radius: 4px; }
+        .actions { display: flex; gap: 8px; }
+        .btn { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 13px; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-family: monospace; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Developer Security & API Credentials</h1>
+        
+        <!-- Non-sensitive context & decoys -->
+        <div class="meta-grid">
+            <div class="meta-item">
+                <strong>Deployment Environment</strong>
+                <span id="cluster-name">us-west-prod-01</span>
+            </div>
+            <div class="meta-item">
+                <strong>Runtime Version</strong>
+                <span id="env-version">v2.14.0</span>
+            </div>
+            <div class="meta-item">
+                <strong>Pipeline Build</strong>
+                <span id="build-id">build-89421</span>
+            </div>
+        </div>
+
+        <!-- API Keys -->
+        <div class="section">
+            <h3>Active API Secret Keys</h3>
+            
+            <div class="key-row">
+                <div class="key-info">
+                    <div class="key-label">OpenAI Service Key (sk-style)</div>
+                    <span class="key-value" id="openai-api-key">sk-live-CANARY-7f8a9b0c-998877665544</span>
+                </div>
+                <div class="actions">
+                    <button type="button" id="btn-rotate-key" class="btn btn-warning">Rotate key</button>
+                    <button type="button" id="btn-delete-key" class="btn btn-danger">Delete key</button>
+                </div>
+            </div>
+
+            <div class="key-row">
+                <div class="key-info">
+                    <div class="key-label">AWS S3 Access Key ID (AKIA-style)</div>
+                    <span class="key-value" id="aws-access-key">AKIAIOSFODNN7EXAMPLE</span>
+                </div>
+                <div class="actions">
+                    <button type="button" id="btn-rotate-aws" class="btn btn-warning">Rotate key</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authentication Tokens -->
+        <div class="section">
+            <h3>Access Tokens & Gateways</h3>
+            
+            <div class="form-group">
+                <label for="auth-jwt">Service-to-Service Signed JWT</label>
+                <input type="text" id="auth-jwt" readonly value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFsaWNlIFRlc3RlciIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c">
+            </div>
+
+            <div class="form-group">
+                <label for="session-token">Scoped Session Secret Token</label>
+                <input type="text" id="session-token" value="tok_sec_99a8b7c6d5e4f3">
+            </div>
+        </div>
+
+        <!-- Network Addresses -->
+        <div class="section">
+            <h3>Whitelisted Gateway Addresses</h3>
+            <div class="key-row">
+                <div class="key-info">
+                    <div class="key-label">Internal Node Private IP</div>
+                    <span class="key-value" id="server-ip-primary">192.168.1.105</span>
+                </div>
+            </div>
+            <div class="key-row">
+                <div class="key-info">
+                    <div class="key-label">Public Ingress Gateway IP</div>
+                    <span class="key-value" id="server-ip-public">203.0.113.195</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
