@@ -4,6 +4,9 @@ entities:
   CARD:
     action: "mask"
     description: "Payment card numbers (Luhn valid 13-19 digits)"
+  CARD_MASKED:
+    action: "allow"
+    description: "Masked card visual placeholder"
   AADHAAR:
     action: "mask"
     description: "Indian national identity 12-digit number (Verhoeff valid)"
@@ -16,21 +19,44 @@ entities:
   OTP:
     action: "block"
     description: "One-time passwords and verification codes"
+  CVV:
+    action: "mask"
+    description: "Card verification value / security code"
+  EXPIRY:
+    action: "mask"
+    description: "Card expiration date"
   EMAIL:
     action: "mask"
     description: "Personal and corporate email addresses"
   PHONE:
     action: "mask"
     description: "International and domestic phone numbers"
+  NAME:
+    action: "mask"
+    description: "Person full names"
+  ADDRESS:
+    action: "mask"
+    description: "Physical street and delivery addresses"
   API_KEY:
     action: "block"
     description: "Cloud and service API secret tokens"
+  JWT:
+    action: "block"
+    description: "JSON Web Tokens and signed authorization tokens"
+  TOKEN:
+    action: "block"
+    description: "Session tokens and authentication tokens"
   IP:
     action: "mask"
     description: "IPv4 and IPv6 network addresses"
   FACE:
     action: "mask"
     description: "Human facial imagery in screen captures"
+  NOTE_WITH_CANARY:
+    action: "mask"
+    description: "Sensitive notes containing canary tokens"
+
+custom_rules: []
 
 approval_required:
   actions:
@@ -46,4 +72,3 @@ approval_required:
       selectors:
         - "input[type='password']"
       reason: "Credential entry requires manual user authorization"
-

@@ -292,7 +292,8 @@ def evaluate_page(
 
         # Mark ground-truth sensitive positions
         for s_item in sensitive_items:
-            if s_item.get("selector", "").lstrip("#.") == elem.element_id:
+            t_id = _resolve_target_id(s_item.get("selector", ""), snapshot.elements)
+            if t_id == elem.element_id:
                 val = str(s_item.get("value", ""))
                 pos = text.find(val)
                 if pos != -1:
