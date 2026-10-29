@@ -1,0 +1,60 @@
+{
+  "seed": 42,
+  "entries": [
+    {
+      "canary_id": "CARD-6706d7e805da846a32c3bb81e3c29b62",
+      "category": "CARD",
+      "value": "4104332181960018"
+    },
+    {
+      "canary_id": "AADHAAR-bb682575ec87a171ac826a6fce48478d",
+      "category": "AADHAAR",
+      "value": "234131647526"
+    },
+    {
+      "canary_id": "PAN-45d2cce8038a39d5e0853964b50af03b",
+      "category": "PAN",
+      "value": "SMLHE8710D"
+    },
+    {
+      "canary_id": "EMAIL-44f58d669cbee3772a077021721a278f",
+      "category": "EMAIL",
+      "value": "canary971722f2@example.com"
+    },
+    {
+      "canary_id": "PHONE-33dbdde131ca3766e4d58e72e310275d",
+      "category": "PHONE",
+      "value": "+917829973763"
+    },
+    {
+      "canary_id": "OTP-c0c8e9df469611a11f5125227c3712da",
+      "category": "OTP",
+      "value": "773602"
+    },
+    {
+      "canary_id": "PASSWORD-20e32684b27b95e909348334896a68f8",
+      "category": "PASSWORD",
+      "value": "P@ssw0rd-86a78c49ea"
+    },
+    {
+      "canary_id": "API_KEY-755d05ad7853c1f76eb97706ca828bca",
+      "category": "API_KEY",
+      "value": "sk_live_12d810a485ed03241b4d419b1b673bd4"
+    },
+    {
+      "canary_id": "IP-85813dbad3c681d06bd2aa399dac946d",
+      "category": "IP",
+      "value": "192.168.14.30"
+    },
+    {
+      "canary_id": "NAME-96daeee6f529a279764017f2ed6cfc74",
+      "category": "NAME",
+      "value": "Canary Person c59c09"
+    },
+    {
+      "canary_id": "ADDRESS-03d75e173e4eaede5fe878f78e2978aa",
+      "category": "ADDRESS",
+      "value": "123 Canary St, Testville, 110001"
+    }
+  ]
+}
