@@ -1,0 +1,16 @@
+AGENTS.md
+ARCHITECTURE.md
+DESIGN.md
+MEMORY.md
+PRD.md
+RULES.md
+.env
+.kilo/
+__pycache__/
+*.pyc
+*.pt
+*.onnx
+logs/
+*.dump
+*.flow
+.mitmproxy/

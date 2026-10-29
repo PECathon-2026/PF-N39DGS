@@ -1,0 +1,13 @@
+playwright
+presidio-analyzer
+spacy
+pytesseract
+opencv-python
+Pillow
+fastapi
+uvicorn
+jinja2
+google-generativeai
+mitmproxy
+pytest
+python-dotenv

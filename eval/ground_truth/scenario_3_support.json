@@ -1,0 +1,9 @@
+{
+  "scenario": "scenario_3_support",
+  "canaries": [
+    "+917829973763",
+    "sk_live_12d810a485ed03241b4d419b1b673bd4",
+    "Canary Person c59c09",
+    "canary971722f2@example.com"
+  ]
+}

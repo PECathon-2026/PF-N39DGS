@@ -1,0 +1,7 @@
+{
+  "scenario": "scenario_5_devtools",
+  "canaries": [
+    "192.168.14.30",
+    "sk_live_12d810a485ed03241b4d419b1b673bd4"
+  ]
+}

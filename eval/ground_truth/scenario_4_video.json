@@ -1,0 +1,6 @@
+{
+  "scenario": "scenario_4_video",
+  "canaries": [
+    "Canary Person c59c09"
+  ]
+}

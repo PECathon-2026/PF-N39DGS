@@ -1,0 +1,9 @@
+{
+  "scenario": "scenario_1_ecommerce",
+  "canaries": [
+    "4104332181960018",
+    "canary971722f2@example.com",
+    "Canary Person c59c09",
+    "123 Canary St, Testville, 110001"
+  ]
+}
