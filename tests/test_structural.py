@@ -59,3 +59,45 @@ def test_structural_name_and_label_hints() -> None:
     )
     findings = detector.detect([elem])
     assert any(f.type == "CVV" for f in findings)
+
+
+def test_structural_ignores_label_elements() -> None:
+    """Ensure UI <label> elements are never flagged as sensitive."""
+    detector = StructuralDetector()
+    elems = [
+        ElementSnapshot(element_id="lbl-1", tag="label", visible_text="Credit Card Number"),
+        ElementSnapshot(element_id="lbl-2", tag="label", visible_text="Security Code (CVV)"),
+        ElementSnapshot(element_id="lbl-3", tag="label", visible_text="One-Time Password (OTP)"),
+    ]
+    findings = detector.detect(elems)
+    assert len(findings) == 0
+
+
+def test_structural_password_cvv_special_case() -> None:
+    """Test masked CVV input field detection."""
+    detector = StructuralDetector()
+    elem = ElementSnapshot(
+        element_id="card-cvv",
+        tag="input",
+        input_type="password",
+        name="card_cvv",
+    )
+    findings = detector.detect([elem])
+    assert len(findings) == 1
+    assert findings[0].type == "CVV"
+    assert findings[0].rule_id == "dom_hint_cvv"
+
+
+def test_structural_password_toggle_hint() -> None:
+    """Test detection of password field shown as plain text via toggle."""
+    detector = StructuralDetector()
+    elem = ElementSnapshot(
+        element_id="toggle-field",
+        tag="input",
+        input_type="text",
+        aria_label="Account Access Password",
+    )
+    findings = detector.detect([elem])
+    assert any(f.type == "PASSWORD" for f in findings)
+
+

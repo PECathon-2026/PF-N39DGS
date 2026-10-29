@@ -94,3 +94,73 @@ def test_engine_sorts_findings_by_position() -> None:
     assert len(resolved) == 2
     assert resolved[0].start == 5
     assert resolved[1].start == 30
+
+
+def test_engine_drops_container_level_finding_when_descendant_has_same_type() -> None:
+    """Test dropping container-level finding when descendant has finding of matching type."""
+    from privacylens.capture import ElementSnapshot
+
+    engine = DetectionEngine(enabled_detectors=[])
+    elements = [
+        ElementSnapshot(element_id="container-1", tag="div", is_leaf=False),
+        ElementSnapshot(
+            element_id="leaf-email",
+            tag="span",
+            parent_id="container-1",
+            ancestor_ids=["container-1"],
+            is_leaf=True,
+        ),
+    ]
+
+    f_container = Finding(
+        type="EMAIL",
+        start=None,
+        end=None,
+        confidence=0.8,
+        source="presidio",
+        rule_id="presidio_email",
+        element_id="container-1",
+    )
+    f_leaf = Finding(
+        type="EMAIL",
+        start=0,
+        end=15,
+        confidence=0.95,
+        source="pattern",
+        rule_id="pattern_email",
+        element_id="leaf-email",
+    )
+
+    resolved = engine.resolve_findings([f_container, f_leaf], elements=elements)
+    assert len(resolved) == 1
+    assert resolved[0].element_id == "leaf-email"
+
+
+def test_engine_priority_address_over_name() -> None:
+    """Test that ADDRESS takes precedence over partial NAME detections on address fields."""
+    engine = DetectionEngine(enabled_detectors=[])
+
+    f_name = Finding(
+        type="NAME",
+        start=0,
+        end=10,
+        confidence=0.85,
+        source="presidio",
+        rule_id="presidio_person",
+        element_id="addr-input",
+    )
+    f_addr = Finding(
+        type="ADDRESS",
+        start=0,
+        end=40,
+        confidence=0.98,
+        source="structural",
+        rule_id="dom_autocomplete_street-address",
+        element_id="addr-input",
+    )
+
+    resolved = engine.resolve_findings([f_name, f_addr])
+    assert len(resolved) == 1
+    assert resolved[0].type == "ADDRESS"
+
+

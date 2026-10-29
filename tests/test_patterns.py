@@ -13,6 +13,12 @@ def test_pattern_aadhaar_and_decoy() -> None:
     assert findings[0].type == "AADHAAR"
     assert findings[0].rule_id == "pattern_aadhaar_verhoeff"
 
+    # Spaced Aadhaar
+    spaced_aadhaar = "Resident UIDAI: 5857 0839 3474."
+    findings = detector.detect_text(spaced_aadhaar)
+    assert len(findings) == 1
+    assert findings[0].type == "AADHAAR"
+
     # Decoy 12-digit order id that fails Verhoeff
     decoy_order_id = "Order confirmation reference: 987654321013."
     findings = detector.detect_text(decoy_order_id)
@@ -43,6 +49,12 @@ def test_pattern_pan() -> None:
 
     valid_pan_text = "Verified PAN number ABCPE1234F on file."
     findings = detector.detect_text(valid_pan_text)
+    assert len(findings) == 1
+    assert findings[0].type == "PAN"
+
+    # Lowercase PAN
+    lower_pan = "PAN card reference abcpe1234f submitted."
+    findings = detector.detect_text(lower_pan)
     assert len(findings) == 1
     assert findings[0].type == "PAN"
 

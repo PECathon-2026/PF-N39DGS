@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Express Checkout - Horizon Goods</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
+        .container { max-width: 650px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        h1 { margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .row { display: flex; gap: 16px; }
+        .row > div { flex: 1; }
+        .order-summary { background: #f1f5f9; padding: 16px; border-radius: 6px; margin: 24px 0; }
+        .order-summary h3 { margin-top: 0; margin-bottom: 8px; }
+        .btn-submit { background: #2563eb; color: white; border: none; padding: 14px 24px; font-size: 16px; font-weight: 600; border-radius: 6px; cursor: pointer; width: 100%; }
+        .card-preview { font-family: monospace; color: #64748b; font-size: 13px; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Express Checkout</h1>
+        <div class="order-summary">
+            <h3>Cart Overview</h3>
+            <p><strong>Item Catalog ISBN (Decoy):</strong> <span class="product-isbn">978-0-306-40615-7</span></p>
+            <p><strong>Carrier Tracking Number (Decoy):</strong> <span class="tracking-code">4992739871612345</span></p>
+            <p><strong>Order Total:</strong> <span class="order-total">$289.50</span></p>
+        </div>
+
+        <form onsubmit="event.preventDefault();">
+            <h3>Customer Delivery Information</h3>
+            <div class="form-group">
+                <label>
+                    Recipient Full Name
+                    <input type="text" name="customer_name" value="Elena Rostova" required>
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    Delivery Destination Address
+                    <input type="text" name="shipping_address" value="452 Elm Avenue, Apt CANARY-holdout-1, Chicago, IL 60611" required>
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    Contact Mobile Number
+                    <input type="tel" name="phone_number" value="+1-312-555-0194" required>
+                </label>
+            </div>
+
+            <h3>Payment Card Details</h3>
+            <div class="form-group">
+                <label>
+                    Payment Card Number
+                    <input type="text" name="card_number" value="4532015112830366" required>
+                </label>
+                <div class="card-preview">Sample Masked Format (Decoy): <span class="card-hint">**** **** **** 1111</span></div>
+            </div>
+            <div class="row">
+                <div class="form-group">
+                    <label>
+                        Expiration (MM/YY)
+                        <input type="text" name="card_expiry" value="11/29" placeholder="MM/YY" required>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        Security Code (CVV)
+                        <input type="password" name="card_cvv" value="573" maxlength="4" required>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Complete Purchase</button>
+        </form>
+    </div>
+</body>
+</html>

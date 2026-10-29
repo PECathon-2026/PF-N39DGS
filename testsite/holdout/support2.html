@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Case Resolution - Ticket #994821</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 30px; background: #f1f5f9; color: #0f172a; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #0369a1; color: white; padding: 20px 24px; }
+        .meta-bar { background: #e2e8f0; padding: 12px 24px; font-size: 13px; display: flex; gap: 24px; border-bottom: 1px solid #cbd5e1; }
+        .chat-body { padding: 24px; min-height: 350px; background: #fafafa; }
+        .message { margin-bottom: 16px; max-width: 80%; }
+        .message.agent { margin-right: auto; }
+        .message.user { margin-left: auto; }
+        .msg-content { padding: 12px 16px; border-radius: 8px; font-size: 14px; line-height: 1.5; background: #f3f4f6; }
+        .message.confidential .msg-content { background: #fef2f2; border: 1px solid #fecaca; }
+        .author { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #475569; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Support Case #994821: KYC Compliance Dispute</h2>
+        </div>
+        <div class="meta-bar">
+            <span><strong>Case Ref:</strong> <span id="case-ref">CASE-994821</span></span>
+            <span><strong>Department:</strong> <span id="dept-name">Identity Trust & Safety</span></span>
+            <span><strong>Reference Decoy (10-digit):</strong> <span id="decoy-numeric-ref">2001112222</span></span>
+        </div>
+        <div class="chat-body">
+            <div class="message agent">
+                <div class="author">Compliance Officer</div>
+                <div class="msg-content">
+                    Please verify your direct contact details: primary email <span id="compliance-email">compliance.lead@internal-review.org</span> and verified phone <span id="compliance-phone">+91-91234-56789</span>.
+                </div>
+            </div>
+            <div class="message user">
+                <div class="author">Client Representative</div>
+                <div class="msg-content" id="client-audit-notes">
+                    Customer audit request ref CANARY-holdout-3 for statutory identity compliance verification.
+                </div>
+            </div>
+            <div class="message confidential">
+                <div class="author">Verified Secure Records</div>
+                <div class="msg-content" id="national-id-records">
+                    Records show verified national UIDAI Aadhaar 5857 0839 3474 and corresponding tax permanent account number abcpk7812e for clearance.
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

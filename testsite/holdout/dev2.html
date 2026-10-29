@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cloud Infrastructure Console</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; margin: 30px; background: #0f172a; color: #f8fafc; }
+        .container { max-width: 850px; margin: 0 auto; background: #1e293b; padding: 28px; border-radius: 8px; border: 1px solid #334155; }
+        h1 { margin-top: 0; font-size: 20px; border-bottom: 1px solid #334155; padding-bottom: 12px; }
+        .section { margin-bottom: 24px; }
+        .section h3 { margin-bottom: 8px; font-size: 15px; color: #93c5fd; }
+        pre { background: #0b1120; padding: 14px; border-radius: 6px; font-size: 13px; overflow-x: auto; border: 1px solid #1e293b; color: #38bdf8; }
+        .meta-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .meta-card { background: #0f172a; padding: 12px 16px; border-radius: 6px; border: 1px solid #334155; }
+        .meta-label { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+        .meta-value { font-size: 14px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cloud Infrastructure & Deployment Secrets</h1>
+
+        <div class="section">
+            <h3>Environment Parameters</h3>
+            <div class="meta-list">
+                <div class="meta-card">
+                    <div class="meta-label">Deploy Cluster (Decoy)</div>
+                    <div class="meta-value" id="decoy-env">stage-west-cluster</div>
+                </div>
+                <div class="meta-card">
+                    <div class="meta-label">Release Version (Decoy IP format)</div>
+                    <div class="meta-value" id="decoy-version">1.2.3.4</div>
+                </div>
+                <div class="meta-card">
+                    <div class="meta-label">UI Theme Accent (Decoy Hex)</div>
+                    <div class="meta-value" id="decoy-color">#FFAA00</div>
+                </div>
+                <div class="meta-card">
+                    <div class="meta-label">Service Mesh Primary Host</div>
+                    <div class="meta-value" id="ip-node-a">10.0.1.42</div>
+                </div>
+                <div class="meta-card">
+                    <div class="meta-label">Public Ingress Gateway</div>
+                    <div class="meta-value" id="ip-node-b">198.51.100.77</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>API Gateway Authentication Credentials</h3>
+            <p>Exported runtime secrets:</p>
+            <pre><code id="code-secret">export SERVICE_API_KEY="sk-live-CANARY-holdout-5-884920485912"</code></pre>
+        </div>
+
+        <div class="section">
+            <h3>Webhook Endpoint Verification</h3>
+            <p>Signed query webhook URL:</p>
+            <pre><code id="query-token">https://api.internal.service/v1/data?token=tok_sec_89b2c3d4e5f6</code></pre>
+        </div>
+
+        <div class="section">
+            <h3>Diagnostic Authorization Command</h3>
+            <p>Execute live JWT authorization check:</p>
+            <pre><code id="curl-auth">curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJob2xkb3V0LXRlc3QiLCJuYW1lIjoiTWF0dCBEZXYiLCJpYXQiOjE1MTYyMzkwMjJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" https://api.internal.service</code></pre>
+        </div>
+    </div>
+</body>
+</html>

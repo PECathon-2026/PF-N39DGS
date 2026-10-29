@@ -29,6 +29,10 @@ class Finding(BaseModel):
         default=None,
         description="DOM element id or selector if detected in DOM",
     )
+    is_structural: bool = Field(
+        default=False,
+        description="Flag indicating element-level structural finding without character span",
+    )
 
 
 class SanitizedResult(BaseModel):

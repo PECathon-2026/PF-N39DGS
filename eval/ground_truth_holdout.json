@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "canaries": [
+    { "id": "CANARY-holdout-1", "page": "checkout2.html", "target": "input[name='shipping_address']" },
+    { "id": "CANARY-holdout-2", "page": "auth2.html", "target": "input[aria-label='Work Email Address']" },
+    { "id": "CANARY-holdout-3", "page": "support2.html", "target": "#client-audit-notes" },
+    { "id": "CANARY-holdout-4", "page": "meeting2.html", "target": "#participant-1-email" },
+    { "id": "CANARY-holdout-5", "page": "dev2.html", "target": "#code-secret" }
+  ],
+  "pages": {
+    "checkout2.html": {
+      "url": "http://127.0.0.1:8765/holdout/checkout2.html",
+      "sensitive_items": [
+        { "value": "Elena Rostova", "type": "NAME", "selector": "input[name='customer_name']" },
+        { "value": "452 Elm Avenue, Apt CANARY-holdout-1, Chicago, IL 60611", "type": "ADDRESS", "selector": "input[name='shipping_address']" },
+        { "value": "+1-312-555-0194", "type": "PHONE", "selector": "input[name='phone_number']" },
+        { "value": "4532015112830366", "type": "CARD", "selector": "input[name='card_number']" },
+        { "value": "11/29", "type": "EXPIRY", "selector": "input[name='card_expiry']" },
+        { "value": "573", "type": "CVV", "selector": "input[name='card_cvv']" }
+      ],
+      "decoys": [
+        { "value": "978-0-306-40615-7", "type": "ISBN", "selector": ".product-isbn", "reason": "Standard Book ISBN-13 format" },
+        { "value": "4992739871612345", "type": "TRACKING_NUMBER", "selector": ".tracking-code", "reason": "16-digit tracking code failing Luhn checksum" },
+        { "value": "**** **** **** 1111", "type": "MASKED_CARD", "selector": ".card-hint", "reason": "Masked credit card visual placeholder" },
+        { "value": "$289.50", "type": "CURRENCY", "selector": ".order-total", "reason": "Commercial purchase price" }
+      ]
+    },
+    "auth2.html": {
+      "url": "http://127.0.0.1:8765/holdout/auth2.html",
+      "sensitive_items": [
+        { "value": "security.officer.CANARY-holdout-2@enterprise.net", "type": "EMAIL", "selector": "input[aria-label='Work Email Address']" },
+        { "value": "VaultAccess#2026!", "type": "PASSWORD", "selector": "#toggle-pwd-field" },
+        { "value": "649102", "type": "OTP", "selector": "input[aria-label='One-Time Authentication Passcode']" }
+      ],
+      "decoys": [
+        { "value": "2026-11-04", "type": "DATE", "selector": ".audit-date", "reason": "Portal release date string" },
+        { "value": "2026-11-04 14:32:00 UTC", "type": "TIMESTAMP", "selector": ".server-time", "reason": "Server synchronization UTC timestamp" },
+        { "value": "Enterprise Gateway", "type": "HEADING", "selector": "h2", "reason": "Single sign-on header label" }
+      ]
+    },
+    "support2.html": {
+      "url": "http://127.0.0.1:8765/holdout/support2.html",
+      "sensitive_items": [
+        { "value": "compliance.lead@internal-review.org", "type": "EMAIL", "selector": "#compliance-email" },
+        { "value": "+91-91234-56789", "type": "PHONE", "selector": "#compliance-phone" },
+        { "value": "Customer audit request ref CANARY-holdout-3 for statutory identity compliance verification.", "type": "NOTE_WITH_CANARY", "selector": "#client-audit-notes" },
+        { "value": "5857 0839 3474", "type": "AADHAAR", "selector": "#national-id-records" },
+        { "value": "abcpk7812e", "type": "PAN", "selector": "#national-id-records" }
+      ],
+      "decoys": [
+        { "value": "CASE-994821", "type": "CASE_ID", "selector": "#case-ref", "reason": "Internal ticketing identifier" },
+        { "value": "Identity Trust & Safety", "type": "DEPARTMENT", "selector": "#dept-name", "reason": "Enterprise business team name" },
+        { "value": "2001112222", "type": "DECOY_NUMBER", "selector": "#decoy-numeric-ref", "reason": "10-digit numerical ref beginning with 2 (not mobile 6-9)" }
+      ]
+    },
+    "meeting2.html": {
+      "url": "http://127.0.0.1:8765/holdout/meeting2.html",
+      "sensitive_items": [
+        { "value": "Marcus Vance", "type": "NAME", "selector": "#participant-1-name" },
+        { "value": "marcus.vance.CANARY-holdout-4@cloudcorp.internal", "type": "EMAIL", "selector": "#participant-1-email" },
+        { "value": "Chloe Zhao", "type": "NAME", "selector": "#participant-2-name" },
+        { "value": "chloe.zhao@cloudcorp.internal", "type": "EMAIL", "selector": "#participant-2-email" }
+      ],
+      "decoys": [
+        { "value": "Q4 Strategic Privacy & Platform Governance Review", "type": "MEETING_TITLE", "selector": "#meeting-title", "reason": "Public meeting agenda title" },
+        { "value": "ROOM-HOLD-9921", "type": "ROOM_ID", "selector": "#room-code", "reason": "Virtual meeting conference room code" }
+      ]
+    },
+    "dev2.html": {
+      "url": "http://127.0.0.1:8765/holdout/dev2.html",
+      "sensitive_items": [
+        { "value": "sk-live-CANARY-holdout-5-884920485912", "type": "API_KEY", "selector": "#code-secret" },
+        { "value": "tok_sec_89b2c3d4e5f6", "type": "TOKEN", "selector": "#query-token" },
+        { "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJob2xkb3V0LXRlc3QiLCJuYW1lIjoiTWF0dCBEZXYiLCJpYXQiOjE1MTYyMzkwMjJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", "type": "JWT", "selector": "#curl-auth" },
+        { "value": "10.0.1.42", "type": "IP", "selector": "#ip-node-a" },
+        { "value": "198.51.100.77", "type": "IP", "selector": "#ip-node-b" }
+      ],
+      "decoys": [
+        { "value": "stage-west-cluster", "type": "CLUSTER", "selector": "#decoy-env", "reason": "Deployment environment name" },
+        { "value": "1.2.3.4", "type": "VERSION", "selector": "#decoy-version", "reason": "Semantic versioning label structured as 4 octets" },
+        { "value": "#FFAA00", "type": "HEX_COLOR", "selector": "#decoy-color", "reason": "CSS hex color code" }
+      ]
+    }
+  }
+}

@@ -21,14 +21,15 @@ _TYPE_PRIORITY: dict[str, int] = {
     "JWT": 84,
     "TOKEN": 83,
     "PASSWORD": 80,
-    "OTP": 75,
-    "CVV": 70,
+    "CVV": 75,
+    "EXPIRY": 72,
+    "OTP": 70,
     "EMAIL": 65,
     "PHONE": 60,
     "IP": 55,
-    "NAME": 50,
-    "ADDRESS": 45,
-    "EXPIRY": 42,
+    "ADDRESS": 52,
+    "NOTE_WITH_CANARY": 49,
+    "NAME": 48,
     "FACE": 40,
 }
 
@@ -87,7 +88,8 @@ class DetectionEngine:
             except Exception as err:
                 logger.error("Error executing detector '%s': %s", name, err)
 
-        return self.resolve_findings(raw_findings)
+        elements = getattr(context, "elements", None)
+        return self.resolve_findings(raw_findings, elements=elements)
 
     def detect_snapshot(self, snapshot: PageSnapshot) -> list[Finding]:
         """Detect all sensitive entities across a captured PageSnapshot."""
@@ -97,11 +99,16 @@ class DetectionEngine:
         """Scan raw text string across enabled text detectors."""
         return self.scan(text)
 
-    def resolve_findings(self, findings: list[Finding]) -> list[Finding]:
+    def resolve_findings(
+        self,
+        findings: list[Finding],
+        elements: list[Any] | None = None,
+    ) -> list[Finding]:
         """Merge same-type overlaps and resolve cross-type conflicts by priority.
 
         Args:
             findings: Unfiltered list of findings.
+            elements: Optional list of ElementSnapshots from the PageSnapshot.
 
         Returns:
             Resolved, non-overlapping findings sorted by position.
@@ -109,9 +116,48 @@ class DetectionEngine:
         if not findings:
             return []
 
-        # Sort findings by start span or element_id
+        # 1. Build ancestor mapping if elements provided
+        ancestor_map: dict[str, set[str]] = {}
+        if elements:
+            for el in elements:
+                el_id = getattr(el, "element_id", None) or (
+                    el.get("element_id") if isinstance(el, dict) else None
+                )
+                if not el_id:
+                    continue
+                ancestors = set()
+                raw_ancestors = getattr(el, "ancestor_ids", None) or (
+                    el.get("ancestor_ids") if isinstance(el, dict) else None
+                )
+                if raw_ancestors:
+                    ancestors.update(raw_ancestors)
+                parent_id = getattr(el, "parent_id", None) or (
+                    el.get("parent_id") if isinstance(el, dict) else None
+                )
+                if parent_id:
+                    ancestors.add(parent_id)
+                ancestor_map[el_id] = ancestors
+
+        # 2. Drop container-level findings if a descendant already has it
+        filtered_findings = findings
+        if ancestor_map:
+            dropped_indices: set[int] = set()
+            for i, f1 in enumerate(findings):
+                if not f1.element_id:
+                    continue
+                for j, f2 in enumerate(findings):
+                    if i == j or not f2.element_id:
+                        continue
+                    # If f1 is on an ancestor of f2's element, and f1 and f2 have matching types
+                    if f1.element_id in ancestor_map.get(f2.element_id, set()):
+                        if f1.type == f2.type:
+                            dropped_indices.add(i)
+                            break
+            filtered_findings = [f for idx, f in enumerate(findings) if idx not in dropped_indices]
+
+        # 3. Sort findings by start span or element_id
         sorted_findings = sorted(
-            findings,
+            filtered_findings,
             key=lambda f: (
                 f.element_id or "",
                 f.start if f.start is not None else -1,
@@ -132,18 +178,25 @@ class DetectionEngine:
                     if candidate.type == existing.type:
                         # Same type: merge rule_ids/sources and keep highest confidence
                         best_conf = max(candidate.confidence, existing.confidence)
-                        union_source = f"{existing.source}+{candidate.source}"
-                        union_rule = f"{existing.rule_id}+{candidate.rule_id}"
+                        sources = sorted(
+                            set(existing.source.split("+") + candidate.source.split("+"))
+                        )
+                        union_source = "+".join(sources)
+                        rules = sorted(
+                            set(existing.rule_id.split("+") + candidate.rule_id.split("+"))
+                        )
+                        union_rule = "+".join(rules)
                         new_start = (
                             min(candidate.start, existing.start)
                             if (candidate.start is not None and existing.start is not None)
-                            else (existing.start or candidate.start)
+                            else (existing.start if existing.start is not None else candidate.start)
                         )
                         new_end = (
                             max(candidate.end, existing.end)
                             if (candidate.end is not None and existing.end is not None)
-                            else (existing.end or candidate.end)
+                            else (existing.end if existing.end is not None else candidate.end)
                         )
+                        is_struct = candidate.is_structural and existing.is_structural
                         resolved[idx] = Finding(
                             type=existing.type,
                             start=new_start,
@@ -153,6 +206,7 @@ class DetectionEngine:
                             source=union_source,
                             rule_id=union_rule,
                             element_id=existing.element_id or candidate.element_id,
+                            is_structural=is_struct,
                         )
                     elif p_candidate > p_existing:
                         # Candidate has higher priority: replace existing

@@ -30,3 +30,4 @@ if ($remotes -contains "hackathon") {
 }
 
 Write-Host "`nBackup completed successfully." -ForegroundColor Green
+

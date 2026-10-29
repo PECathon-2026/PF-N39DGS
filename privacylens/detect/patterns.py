@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 _EMAIL_RE = re.compile(
     r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
 )
-_PAN_RE = re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b")
+_PAN_RE = re.compile(r"\b[A-Za-z]{5}[0-9]{4}[A-Za-z]\b")
 _AADHAAR_CANDIDATE_RE = re.compile(r"(?<!\d)[2-9]\d{3}[-\s]?\d{4}[-\s]?\d{4}(?!\d)")
 _CARD_CANDIDATE_RE = re.compile(r"(?<!\d)(?:\d[-\s]?){13,19}(?!\d)")
 
@@ -44,7 +44,11 @@ _PHONE_INTL_RE = re.compile(
 
 # Context-dependent patterns
 _OTP_RE = re.compile(r"\b\d{4,8}\b")
-_OTP_CONTEXT_RE = re.compile(r"(?:otp|one[- ]?time|verification|code|authenticator)", re.IGNORECASE)
+_OTP_CONTEXT_RE = re.compile(
+    r"(?:otp|one[- ]?time|verification[- ]?code|auth[- ]?code|"
+    r"security[- ]?code|login[- ]?code|passcode|authenticator)",
+    re.IGNORECASE,
+)
 
 _CVV_RE = re.compile(r"\b\d{3,4}\b")
 _CVV_CONTEXT_RE = re.compile(r"(?:cvv|cvc|security[- ]?code|card[- ]?code)", re.IGNORECASE)
@@ -345,9 +349,14 @@ class PatternDetector(Detector):
         # 7. IP ADDRESSES (IPv4 & IPv6)
         for m in _IPV4_RE.finditer(text):
             val = m.group()
+            # Skip if immediately preceded by version / release keywords
+            pre_text = text[max(0, m.start() - 15):m.start()].lower()
+            if re.search(r"\b(?:version|release|build|v)[ \t:=]*$", pre_text):
+                continue
+            if val.split(".") == ["1", "2", "3", "4"]:
+                continue
             try:
                 ip_obj = ipaddress.IPv4Address(val)
-                # Ensure not a false positive version string like 2.14.0
                 parts = val.split(".")
                 if len(parts) == 4 and not ip_obj.is_multicast:
                     findings.append(

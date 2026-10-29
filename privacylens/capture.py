@@ -32,6 +32,9 @@ class ElementSnapshot:
     visible_text: str | None = None
     input_value: str | None = None
     bbox: tuple[float, float, float, float] | None = None
+    parent_id: str | None = None
+    ancestor_ids: list[str] = field(default_factory=list)
+    is_leaf: bool = False
 
 
 @dataclass
@@ -49,6 +52,11 @@ _DOM_EXTRACT_JS = """
     let idCounter = 1;
     const elements = [];
     const interactiveTags = ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'A'];
+    const ignoredTags = ['STYLE', 'SCRIPT', 'NOSCRIPT', 'LINK', 'META', 'HEAD', 'TITLE'];
+    const containerTags = [
+        'HTML', 'BODY', 'FORM', 'HEADER', 'MAIN', 'SECTION', 'NAV', 'FOOTER',
+        'TABLE', 'TBODY', 'THEAD', 'TR', 'UL', 'OL'
+    ];
 
     function getLabel(el) {
         if (el.labels && el.labels.length > 0) {
@@ -66,19 +74,51 @@ _DOM_EXTRACT_JS = """
     const scrollX = window.scrollX || window.pageXOffset || 0;
     const scrollY = window.scrollY || window.pageYOffset || 0;
 
-    const all = document.querySelectorAll('*');
+    function collectAllElements(root) {
+        const result = [];
+        const walker = (node) => {
+            if (!node || node.nodeType !== 1) return;
+            result.push(node);
+            if (node.shadowRoot) {
+                for (const child of node.shadowRoot.children) {
+                    walker(child);
+                }
+            }
+            if (node.tagName === 'IFRAME') {
+                try {
+                    const winDoc = node.contentWindow && node.contentWindow.document;
+                    const doc = node.contentDocument || winDoc;
+                    if (doc && doc.body) {
+                        for (const child of doc.body.children) {
+                            walker(child);
+                        }
+                    }
+                } catch (e) {
+                    // Ignore cross-origin frame errors
+                }
+            }
+            for (const child of node.children) {
+                walker(child);
+            }
+        };
+        walker(root);
+        return result;
+    }
+
+    const all = collectAllElements(document.documentElement);
     for (const el of all) {
         const tag = el.tagName.toUpperCase();
+        if (ignoredTags.includes(tag)) continue;
+
         const isInteractive = interactiveTags.includes(tag) ||
             el.getAttribute('role') === 'button' ||
             el.hasAttribute('onclick');
 
-        const containerTags = [
-            'HTML', 'BODY', 'FORM', 'HEADER', 'MAIN', 'SECTION', 'NAV', 'FOOTER'
-        ];
-        const isContainer = containerTags.includes(tag);
-        const hasText = el.innerText && el.innerText.trim().length > 0;
-        const isLeafText = !isContainer && el.children.length === 0 && hasText;
+        const hasChildren = el.children.length > 0;
+        const isContainer = containerTags.includes(tag) || hasChildren;
+        const rawText = (el.innerText || '').trim();
+        const hasText = rawText.length > 0;
+        const isLeafText = !isContainer && hasText;
 
         if (isInteractive || isLeafText || tag === 'IMG' || tag === 'SVG') {
             let elId = el.id;
@@ -90,6 +130,27 @@ _DOM_EXTRACT_JS = """
                 }
             }
 
+            // Collect ancestor ids
+            const ancestorIds = [];
+            let p = el.parentElement;
+            let parentId = null;
+            while (p && p.tagName !== 'HTML') {
+                if (ignoredTags.includes(p.tagName.toUpperCase())) {
+                    p = p.parentElement;
+                    continue;
+                }
+                let pid = p.id || p.getAttribute('data-pl-id');
+                if (!pid) {
+                    pid = 'pl-elem-' + (idCounter++);
+                    p.setAttribute('data-pl-id', pid);
+                }
+                if (!parentId) {
+                    parentId = pid;
+                }
+                ancestorIds.push(pid);
+                p = p.parentElement;
+            }
+
             const rect = el.getBoundingClientRect();
             const bbox = (rect.width > 0 && rect.height > 0) ? [
                 rect.top + scrollY,
@@ -97,6 +158,19 @@ _DOM_EXTRACT_JS = """
                 rect.bottom + scrollY,
                 rect.right + scrollX
             ] : null;
+
+            // Containers must NOT carry aggregated text. Only true leaf elements have visible_text.
+            let visibleText = null;
+            let inputValue = null;
+
+            if (tag === 'INPUT' || tag === 'TEXTAREA') {
+                inputValue = (el.value !== undefined) ? el.value : null;
+                visibleText = null;
+            } else if (isLeafText) {
+                visibleText = rawText;
+            } else if (isInteractive && !hasChildren) {
+                visibleText = rawText;
+            }
 
             elements.push({
                 element_id: elId,
@@ -107,9 +181,12 @@ _DOM_EXTRACT_JS = """
                 aria_label: el.getAttribute('aria-label') || null,
                 associated_label_text: getLabel(el),
                 placeholder: el.placeholder || el.getAttribute('placeholder') || null,
-                visible_text: isLeafText ? el.innerText.trim() : (el.innerText || null),
-                input_value: (el.value !== undefined) ? el.value : null,
-                bbox: bbox
+                visible_text: visibleText,
+                input_value: inputValue,
+                bbox: bbox,
+                parent_id: parentId,
+                ancestor_ids: ancestorIds,
+                is_leaf: isLeafText
             });
         }
     }
@@ -263,6 +340,9 @@ async def capture_async(
                     visible_text=raw.get("visible_text"),
                     input_value=raw.get("input_value"),
                     bbox=bbox,
+                    parent_id=raw.get("parent_id"),
+                    ancestor_ids=raw.get("ancestor_ids", []),
+                    is_leaf=bool(raw.get("is_leaf", False)),
                 )
             )
 

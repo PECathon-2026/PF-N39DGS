@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from presidio_analyzer import AnalyzerEngine, RecognizerResult
@@ -14,11 +15,19 @@ from privacylens.models import Finding
 
 logger = logging.getLogger(__name__)
 
-_PRESIDIO_MAP = {
-    "PERSON": "NAME",
-    "LOCATION": "ADDRESS",
-    "EMAIL_ADDRESS": "EMAIL",
-    "PHONE_NUMBER": "PHONE",
+_PRESIDIO_IGNORE_TAGS = {
+    "label", "button", "h1", "h2", "h3", "h4", "h5", "h6", "th", "nav", "a"
+}
+
+_UI_NON_NAME_WORDS = {
+    "OK", "SUBMIT", "CANCEL", "SAVE", "SEARCH", "LOGIN", "SIGN IN", "SIGN",
+    "SIGN OUT", "ORDER", "SUMMARY", "REVIEW", "KYC", "SECURITY", "SETUP",
+    "CARD", "HOME", "HELP", "SUPPORT", "SETTINGS", "PROFILE", "VERIFY",
+    "OFFICER", "REPRESENTATIVE", "AGENT", "DEPARTMENT", "SYSTEM", "RECORDS",
+    "VERIFIED", "CLIENT", "COMPLIANCE", "OVERVIEW", "PARAMETERS", "CLUSTER",
+    "CATALOG", "DESTINATION", "RECIPIENT", "INFORMATION", "DETAILS",
+    "DATE", "TIMESTAMP", "TIME", "STATUS", "ID", "REF", "CODE", "ROOM", "CASE",
+    "COLOR", "VERSION", "RELEASE", "BUILD", "THEME", "ACCENT"
 }
 
 _SINGLETON_ANALYZER: AnalyzerEngine | None = None
@@ -79,7 +88,7 @@ class PresidioDetector(Detector):
             # PageSnapshot
             findings: list[Finding] = []
             for elem in context.elements:
-                if elem.tag in ("button", "a") or elem.input_type in ("submit", "button"):
+                if elem.tag in _PRESIDIO_IGNORE_TAGS:
                     continue
                 target_text = elem.input_value if elem.input_value else elem.visible_text
                 if not target_text or len(target_text.strip()) < 2:
@@ -93,6 +102,8 @@ class PresidioDetector(Detector):
             return findings
 
         if hasattr(context, "visible_text") or hasattr(context, "input_value"):
+            if getattr(context, "tag", "") in _PRESIDIO_IGNORE_TAGS:
+                return []
             target_text = context.input_value if context.input_value else context.visible_text
             if not target_text:
                 return []
@@ -114,20 +125,33 @@ class PresidioDetector(Detector):
         bbox: tuple[float, float, float, float] | None = None,
     ) -> list[Finding]:
         """Analyze text with Presidio AnalyzerEngine."""
-        if not text or not text.strip():
+        clean_text = text.strip()
+        if not clean_text:
             return []
 
+        # Ignore hex colors
+        if clean_text.startswith("#") and re.match(r"^#[0-9a-fA-F]{3,8}$", clean_text):
+            return []
+
+        threshold = max(self.score_threshold, 0.6)
         engine = self._get_engine()
         results: list[RecognizerResult] = engine.analyze(
             text=text,
             language="en",
-            score_threshold=self.score_threshold,
-            entities=["PERSON", "LOCATION", "EMAIL_ADDRESS", "PHONE_NUMBER"],
+            score_threshold=threshold,
+            entities=["PERSON", "LOCATION"],
         )
 
         findings: list[Finding] = []
         for res in results:
-            target_type = _PRESIDIO_MAP.get(res.entity_type, res.entity_type)
+            span_val = text[res.start:res.end].strip()
+            # Ignore all-caps UI words or short abbreviations or known UI non-name categories
+            words = [w.strip(".,;:()[]{}'\"") for w in span_val.upper().split()]
+            if any(w in _UI_NON_NAME_WORDS for w in words):
+                continue
+            if span_val.isupper() and len(span_val) <= 4:
+                continue
+            target_type = "NAME" if res.entity_type == "PERSON" else "ADDRESS"
             findings.append(
                 Finding(
                     type=target_type,

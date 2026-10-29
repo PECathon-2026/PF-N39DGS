@@ -13,13 +13,19 @@ logger = logging.getLogger(__name__)
 
 # Keyword patterns for attribute inspection
 _HINT_PATTERNS = {
+    "CVV": re.compile(r"\b(?:cvv|cvc|security[-_]?code|card[-_]?cvv)\b", re.IGNORECASE),
     "OTP": re.compile(r"\b(?:otp|one[-_]?time|authenticator)\b", re.IGNORECASE),
-    "CVV": re.compile(r"\b(?:cvv|cvc|security[-_]?code)\b", re.IGNORECASE),
-    "CARD": re.compile(r"\b(?:credit|debit)?[-_]?card(?:[-_]?number)?\b", re.IGNORECASE),
+    "EXPIRY": re.compile(r"\b(?:exp|expiry|expiration|card[-_]?exp)\b", re.IGNORECASE),
+    "CARD": re.compile(
+        r"\b(?:credit|debit)?[-_]?card(?![-_]?(?:exp|expiry|cvv|csc|code))"
+        r"(?:[-_]?(?:number|num|no))?\b",
+        re.IGNORECASE,
+    ),
     "AADHAAR": re.compile(r"\b(?:aadhaar|uidai)\b", re.IGNORECASE),
     "PAN": re.compile(r"\b(?:pan[-_]?number|pan[-_]?card)\b", re.IGNORECASE),
     "API_KEY": re.compile(r"\b(?:api[-_]?key|secret[-_]?key|access[-_]?key)\b", re.IGNORECASE),
     "TOKEN": re.compile(r"\b(?:session[-_]?token|auth[-_]?token)\b", re.IGNORECASE),
+    "PASSWORD": re.compile(r"\b(?:password|passwd|pwd)\b", re.IGNORECASE),
 }
 
 _AUTOCOMPLETE_MAP = {
@@ -85,22 +91,40 @@ class StructuralDetector(Detector):
             aria_label = _get_field(el, "aria_label", "").lower()
             bbox = getattr(el, "bbox", None) if hasattr(el, "bbox") else el.get("bbox")
 
-            # 1. Password input fields
+            # Check whether element is an input control
+            is_input_element = (
+                tag in ("input", "textarea", "select")
+                or bool(input_type)
+                or (el.get("role") in ("textbox", "combobox") if isinstance(el, dict) else False)
+            )
+
+            combined_desc = f"{el_id or ''} {name} {placeholder} {label} {aria_label}".lower()
+
+            # 1. Password input fields (special-case CVV/OTP masked as password)
             if input_type == "password":
+                pwd_type = "PASSWORD"
+                pwd_rule = "dom_type_password"
+                if _HINT_PATTERNS["CVV"].search(combined_desc):
+                    pwd_type = "CVV"
+                    pwd_rule = "dom_hint_cvv"
+                elif _HINT_PATTERNS["OTP"].search(combined_desc):
+                    pwd_type = "OTP"
+                    pwd_rule = "dom_hint_otp"
                 findings.append(
                     Finding(
-                        type="PASSWORD",
+                        type=pwd_type,
                         confidence=1.0,
                         source="structural",
-                        rule_id="dom_type_password",
+                        rule_id=pwd_rule,
                         element_id=el_id,
                         bbox=bbox,
+                        is_structural=True,
                     )
                 )
                 continue
 
-            # 2. Autocomplete attributes
-            if autocomplete and autocomplete in _AUTOCOMPLETE_MAP:
+            # 2. Autocomplete attributes (only on form input elements)
+            if is_input_element and autocomplete and autocomplete in _AUTOCOMPLETE_MAP:
                 entity_type = _AUTOCOMPLETE_MAP[autocomplete]
                 findings.append(
                     Finding(
@@ -110,43 +134,46 @@ class StructuralDetector(Detector):
                         rule_id=f"dom_autocomplete_{autocomplete}",
                         element_id=el_id,
                         bbox=bbox,
+                        is_structural=True,
                     )
                 )
                 continue
 
             # 3. Avatar / Face elements in participant or video containers
-            combined_desc = f"{el_id or ''} {name} {placeholder} {label} {aria_label}".lower()
-            if (
-                tag in ("img", "svg")
-                or "avatar" in combined_desc
-                or "tile-participant" in combined_desc
+            if tag in ("img", "svg") and (
+                "profile avatar" in combined_desc
+                or "webcam" in combined_desc
+                or "camera-stream" in combined_desc
             ):
-                if "avatar" in combined_desc or "participant" in combined_desc:
-                    findings.append(
-                        Finding(
-                            type="FACE",
-                            confidence=0.85,
-                            source="structural",
-                            rule_id="dom_avatar_face",
-                            element_id=el_id,
-                            bbox=bbox,
-                        )
+                findings.append(
+                    Finding(
+                        type="FACE",
+                        confidence=0.85,
+                        source="structural",
+                        rule_id="dom_avatar_face",
+                        element_id=el_id,
+                        bbox=bbox,
+                        is_structural=True,
                     )
-                    continue
+                )
+                continue
 
             # 4. Keyword hints across name, id, placeholder, and label
-            for entity_type, pat in _HINT_PATTERNS.items():
-                if pat.search(combined_desc):
-                    findings.append(
-                        Finding(
-                            type=entity_type,
-                            confidence=0.9,
-                            source="structural",
-                            rule_id=f"dom_hint_{entity_type.lower()}",
-                            element_id=el_id,
-                            bbox=bbox,
+            # Strict rule: only inspect input/data-bearing elements, NEVER UI <label> elements
+            if is_input_element and tag != "label":
+                for entity_type, pat in _HINT_PATTERNS.items():
+                    if pat.search(combined_desc):
+                        findings.append(
+                            Finding(
+                                type=entity_type,
+                                confidence=0.9,
+                                source="structural",
+                                rule_id=f"dom_hint_{entity_type.lower()}",
+                                element_id=el_id,
+                                bbox=bbox,
+                                is_structural=True,
+                            )
                         )
-                    )
-                    break
+                        break
 
         return findings
