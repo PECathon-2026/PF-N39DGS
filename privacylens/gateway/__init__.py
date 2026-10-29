@@ -3,4 +3,3 @@
 from privacylens.gateway.audit import AuditLogger
 
 __all__ = ["AuditLogger"]
-

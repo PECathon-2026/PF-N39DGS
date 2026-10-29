@@ -173,9 +173,7 @@ class SanitizedView(BaseModel):
         else:
             for r in self.redactions:
                 elem_info = f" element=[{r.element_id}]" if r.element_id else ""
-                lines.append(
-                    f"  - {r.placeholder} ({r.type}){elem_info} action={r.action}"
-                )
+                lines.append(f"  - {r.placeholder} ({r.type}){elem_info} action={r.action}")
 
         return "\n".join(lines)
 

@@ -24,4 +24,3 @@ class ApprovalManager:
         # Documented stub
         logger.info("Human approval requested for action: %s", action)
         return True
-

@@ -58,4 +58,3 @@ def test_empty_and_zero_size_rects_handled_safely() -> None:
     out_of_bounds = {"x": 500.0, "y": 500.0, "w": 50.0, "h": 50.0}
 
     assert verify_redaction_pixels(img, [zero_rect, out_of_bounds], dpr=1.0) is True
-

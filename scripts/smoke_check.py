@@ -62,6 +62,7 @@ def main() -> int:
     # 2. spacy en_core_web_sm load
     try:
         import spacy
+
         nlp = spacy.load("en_core_web_sm")
         doc = nlp("Smoke test entity check.")
         if not doc:

@@ -51,4 +51,3 @@ def get_detector(name: str) -> type[Detector] | None:
 def list_detectors() -> list[str]:
     """Return the list of all registered detector names."""
     return list(_DETECTOR_REGISTRY.keys())
-

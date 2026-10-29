@@ -15,7 +15,6 @@ external network destinations. All outgoing requests must pass inspection:
 from __future__ import annotations
 
 import base64
-import binascii
 import hashlib
 import html
 import json
@@ -145,7 +144,11 @@ def normalize_text_variants(text: str) -> list[str]:
 
     # 7. Hex decoded tokens
     trimmed_hex = text.strip()
-    if len(trimmed_hex) >= 8 and len(trimmed_hex) % 2 == 0 and re.match(r"^[0-9a-fA-F]+$", trimmed_hex):
+    if (
+        len(trimmed_hex) >= 8
+        and len(trimmed_hex) % 2 == 0
+        and re.match(r"^[0-9a-fA-F]+$", trimmed_hex)
+    ):
         try:
             dec = bytes.fromhex(trimmed_hex).decode("utf-8")
             if dec and all(32 <= ord(c) < 127 or c in "\r\n\t" for c in dec):
@@ -197,12 +200,20 @@ def _extract_payload_components(obj: Any) -> tuple[list[str], list[bytes]]:
             # Check for Gemini inline_data style: {"mime_type": "image/...", "data": "<base64>"}
             mime = item.get("mime_type") or item.get("mimeType")
             data_val = item.get("data")
-            if mime and isinstance(mime, str) and mime.startswith("image/") and isinstance(data_val, str):
+            if (
+                mime
+                and isinstance(mime, str)
+                and mime.startswith("image/")
+                and isinstance(data_val, str)
+            ):
                 try:
                     img_bytes = base64.b64decode(data_val)
                     image_payloads.append(img_bytes)
                 except Exception:
                     pass
+                # Do NOT walk into base64 image binary as text
+                return
+
             for k, v in item.items():
                 if isinstance(k, str):
                     text_pieces.append(k)
@@ -355,10 +366,21 @@ class EgressGate:
                 text_pieces.append(q_k)
                 text_pieces.append(q_v)
 
-        # Inspect headers (exclude provider auth header value to avoid self-blocking)
+        # Inspect headers (exclude standard transport and auth headers)
+        transport_headers = {
+            "host",
+            "content-length",
+            "content-type",
+            "accept",
+            "accept-encoding",
+            "connection",
+            "user-agent",
+            "x-goog-api-key",
+            "authorization",
+        }
         for h_name, h_val in request.headers.items():
-            text_pieces.append(h_name)
-            if h_name.lower() not in {"x-goog-api-key", "authorization"}:
+            if h_name.lower() not in transport_headers:
+                text_pieces.append(h_name)
                 text_pieces.append(h_val)
 
         # Inspect body
@@ -422,6 +444,14 @@ class EgressGate:
                 for f in findings:
                     if f.type == "CARD_MASKED":
                         continue
+                    if f.type == "IP":
+                        span_text = (
+                            variant[f.start : f.end].strip()
+                            if f.start is not None and f.end is not None
+                            else ""
+                        )
+                        if span_text in {"127.0.0.1", "0.0.0.0", "::1"}:
+                            continue
                     v_type = f"sensitive_entity:{f.type}"
                     if v_type not in seen_entity_violations:
                         seen_entity_violations.add(v_type)
@@ -474,7 +504,11 @@ class EgressGate:
         unique_violations = list(dict.fromkeys(violations))
 
         is_allowed = len(unique_violations) == 0
-        reason = "Egress payload verified clean" if is_allowed else "Policy violations detected in egress request"
+        reason = (
+            "Egress payload verified clean"
+            if is_allowed
+            else "Policy violations detected in egress request"
+        )
         decision = Decision(allowed=is_allowed, reason=reason, violations=unique_violations)
 
         # 8. Tamper-Evident Audit Logging

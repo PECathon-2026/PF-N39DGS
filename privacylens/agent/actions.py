@@ -26,4 +26,3 @@ class ActionExecutor:
         # Documented stub
         logger.info("Executing action type=%s on element=%s", action.type, action.element_id)
         return True
-

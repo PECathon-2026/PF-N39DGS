@@ -53,4 +53,3 @@ def sanitize_data(request: SanitizeRequest) -> None:
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Sanitization endpoint is not yet implemented in scaffolding phase.",
     )
-

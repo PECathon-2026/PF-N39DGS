@@ -3,4 +3,3 @@
 from privacylens.models import SanitizedResult
 
 __all__ = ["SanitizedResult"]
-

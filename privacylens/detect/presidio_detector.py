@@ -16,20 +16,86 @@ from privacylens.models import Finding
 logger = logging.getLogger(__name__)
 
 _PRESIDIO_IGNORE_TAGS = {
-    "label", "button", "h1", "h2", "h3", "h4", "h5", "h6", "th", "nav", "a",
-    "pre", "code", "script", "style", "kbd"
+    "label",
+    "button",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "th",
+    "nav",
+    "a",
+    "pre",
+    "code",
+    "script",
+    "style",
+    "kbd",
 }
 
 _UI_NON_NAME_WORDS = {
-    "OK", "SUBMIT", "CANCEL", "SAVE", "SEARCH", "LOGIN", "SIGN IN", "SIGN",
-    "SIGN OUT", "ORDER", "SUMMARY", "REVIEW", "KYC", "SECURITY", "SETUP",
-    "CARD", "HOME", "HELP", "SUPPORT", "SETTINGS", "PROFILE", "VERIFY",
-    "OFFICER", "REPRESENTATIVE", "AGENT", "DEPARTMENT", "SYSTEM", "RECORDS",
-    "VERIFIED", "CLIENT", "COMPLIANCE", "OVERVIEW", "PARAMETERS", "CLUSTER",
-    "CATALOG", "DESTINATION", "RECIPIENT", "INFORMATION", "DETAILS",
-    "DATE", "TIMESTAMP", "TIME", "STATUS", "ID", "REF", "CODE", "ROOM", "CASE",
-    "COLOR", "VERSION", "RELEASE", "BUILD", "THEME", "ACCENT",
-    "JSON", "XML", "HTML", "TEXT", "APPLICATION", "MULTIPART", "FORM"
+    "OK",
+    "SUBMIT",
+    "CANCEL",
+    "SAVE",
+    "SEARCH",
+    "LOGIN",
+    "SIGN IN",
+    "SIGN",
+    "SIGN OUT",
+    "ORDER",
+    "SUMMARY",
+    "REVIEW",
+    "KYC",
+    "SECURITY",
+    "SETUP",
+    "CARD",
+    "HOME",
+    "HELP",
+    "SUPPORT",
+    "SETTINGS",
+    "PROFILE",
+    "VERIFY",
+    "OFFICER",
+    "REPRESENTATIVE",
+    "AGENT",
+    "DEPARTMENT",
+    "SYSTEM",
+    "RECORDS",
+    "VERIFIED",
+    "CLIENT",
+    "COMPLIANCE",
+    "OVERVIEW",
+    "PARAMETERS",
+    "CLUSTER",
+    "CATALOG",
+    "DESTINATION",
+    "RECIPIENT",
+    "INFORMATION",
+    "DETAILS",
+    "DATE",
+    "TIMESTAMP",
+    "TIME",
+    "STATUS",
+    "ID",
+    "REF",
+    "CODE",
+    "ROOM",
+    "CASE",
+    "COLOR",
+    "VERSION",
+    "RELEASE",
+    "BUILD",
+    "THEME",
+    "ACCENT",
+    "JSON",
+    "XML",
+    "HTML",
+    "TEXT",
+    "APPLICATION",
+    "MULTIPART",
+    "FORM",
 }
 
 _SINGLETON_ANALYZER: AnalyzerEngine | None = None
@@ -146,7 +212,7 @@ class PresidioDetector(Detector):
 
         findings: list[Finding] = []
         for res in results:
-            span_val = text[res.start:res.end].strip()
+            span_val = text[res.start : res.end].strip()
             # Ignore all-caps UI words or short abbreviations or known UI non-name categories
             words = [w.strip(".,;:()[]{}'\"") for w in span_val.upper().split()]
             if any(w in _UI_NON_NAME_WORDS for w in words):

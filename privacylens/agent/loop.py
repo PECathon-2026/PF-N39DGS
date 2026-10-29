@@ -30,4 +30,3 @@ class AgentLoop:
         # Documented stub
         logger.info("Executing agent loop step for goal: %s", goal)
         return None
-

@@ -39,4 +39,3 @@ def setup_logging(
         file_handler.setFormatter(formatter)
         file_handler.setLevel(level)
         root_logger.addHandler(file_handler)
-

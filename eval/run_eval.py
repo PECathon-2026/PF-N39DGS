@@ -193,9 +193,7 @@ def evaluate_page(
     page_canary = next((c for c in canaries if c["page"] == page_name), None)
     if page_canary:
         canary_target = _resolve_target_id(page_canary["target"], snapshot.elements)
-        canary_findings = [
-            f for f in findings if f.element_id and f.element_id == canary_target
-        ]
+        canary_findings = [f for f in findings if f.element_id and f.element_id == canary_target]
         if canary_findings:
             metrics.canary_detected = True
 
@@ -224,11 +222,13 @@ def evaluate_page(
 
     for gt_idx, s_item in enumerate(sensitive_items):
         if gt_idx not in matched_gt_indices:
-            metrics.missed_items.append({
-                "item_id": f"{page_name}:item_{gt_idx}",
-                "selector": s_item.get("selector", ""),
-                "type": s_item.get("type", ""),
-            })
+            metrics.missed_items.append(
+                {
+                    "item_id": f"{page_name}:item_{gt_idx}",
+                    "selector": s_item.get("selector", ""),
+                    "type": s_item.get("type", ""),
+                }
+            )
 
     # 3. Decoy false positives: check each decoy element
     decoy_ids = {_resolve_target_id(d.get("selector", ""), snapshot.elements): d for d in decoys}
@@ -238,14 +238,11 @@ def evaluate_page(
             flagged_decoy_ids.add(f.element_id)
 
     metrics.decoy_fp = len(flagged_decoy_ids)
-    metrics.decoy_over_redaction_rate = (
-        metrics.decoy_fp / len(decoys) if decoys else 0.0
-    )
+    metrics.decoy_over_redaction_rate = metrics.decoy_fp / len(decoys) if decoys else 0.0
 
     # 4. Classify unmatched findings: type mismatches vs pure extras vs decoy FPs
     sensitive_target_ids = {
-        _resolve_target_id(s.get("selector", ""), snapshot.elements)
-        for s in sensitive_items
+        _resolve_target_id(s.get("selector", ""), snapshot.elements) for s in sensitive_items
     }
     for f_idx, f in enumerate(findings):
         if f_idx in matched_finding_indices:
@@ -253,31 +250,37 @@ def evaluate_page(
         metrics.fp += 1
         if f.element_id in decoy_ids:
             decoy_meta = decoy_ids[f.element_id]
-            metrics.false_positives.append({
-                "item_id": f"{page_name}:decoy_fp_{f_idx}",
-                "selector": f.element_id,
-                "type": f.type,
-                "category": "DECOY_FP",
-                "reason": decoy_meta.get("reason", ""),
-            })
+            metrics.false_positives.append(
+                {
+                    "item_id": f"{page_name}:decoy_fp_{f_idx}",
+                    "selector": f.element_id,
+                    "type": f.type,
+                    "category": "DECOY_FP",
+                    "reason": decoy_meta.get("reason", ""),
+                }
+            )
         elif f.element_id in sensitive_target_ids:
             metrics.type_mismatches += 1
-            metrics.type_mismatch_items.append({
-                "item_id": f"{page_name}:mismatch_{f_idx}",
-                "selector": f.element_id,
-                "type": f.type,
-                "category": "TYPE_MISMATCH",
-                "rule_id": f.rule_id,
-            })
+            metrics.type_mismatch_items.append(
+                {
+                    "item_id": f"{page_name}:mismatch_{f_idx}",
+                    "selector": f.element_id,
+                    "type": f.type,
+                    "category": "TYPE_MISMATCH",
+                    "rule_id": f.rule_id,
+                }
+            )
         else:
             metrics.pure_extras += 1
-            metrics.false_positives.append({
-                "item_id": f"{page_name}:fp_{f_idx}",
-                "selector": f.element_id or "unknown",
-                "type": f.type,
-                "category": "PURE_EXTRA",
-                "rule_id": f.rule_id,
-            })
+            metrics.false_positives.append(
+                {
+                    "item_id": f"{page_name}:fp_{f_idx}",
+                    "selector": f.element_id or "unknown",
+                    "type": f.type,
+                    "category": "PURE_EXTRA",
+                    "rule_id": f.rule_id,
+                }
+            )
 
     # 5. Over-redaction: Character-level metric across all leaf elements
     total_non_sens = 0
@@ -321,16 +324,12 @@ def evaluate_page(
 
     metrics.total_non_sensitive_chars = total_non_sens
     metrics.over_redacted_chars = over_redacted
-    metrics.char_over_redaction_rate = (
-        over_redacted / total_non_sens if total_non_sens > 0 else 0.0
-    )
+    metrics.char_over_redaction_rate = over_redacted / total_non_sens if total_non_sens > 0 else 0.0
 
     metrics.precision = (
         metrics.tp / len(findings) if findings else (1.0 if not sensitive_items else 0.0)
     )
-    metrics.recall = (
-        metrics.tp / len(sensitive_items) if sensitive_items else 1.0
-    )
+    metrics.recall = metrics.tp / len(sensitive_items) if sensitive_items else 1.0
 
     return metrics, findings
 
@@ -543,19 +542,18 @@ def write_markdown_results(results: dict[str, Any], output_path: Path = DOCS_EVA
             f"{p['decoy_fp']} | {d_rate:.1f}% | {c_rate:.2f}% | {p['latency_ms']:.1f} |"
         )
 
-    md.extend([
-        "",
-        "## Ablation Study",
-        "",
-        (
-            "| Configuration | Precision | Recall | TP | FN | "
-            "Decoy FP | Decoy Over-Redact | Char Over-Redact | Canary | Latency (ms) |"
-        ),
-        (
-            "| :--- | :---: | :---: | :---: | :---: | "
-            ":---: | :---: | :---: | :---: | :---: |"
-        ),
-    ])
+    md.extend(
+        [
+            "",
+            "## Ablation Study",
+            "",
+            (
+                "| Configuration | Precision | Recall | TP | FN | "
+                "Decoy FP | Decoy Over-Redact | Char Over-Redact | Canary | Latency (ms) |"
+            ),
+            ("| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |"),
+        ]
+    )
 
     for cfg_name, cfg in ablations.items():
         cd_rate = cfg.get("decoy_over_redaction_rate", 0.0) * 100
@@ -567,11 +565,13 @@ def write_markdown_results(results: dict[str, Any], output_path: Path = DOCS_EVA
             f"{cfg['canary_coverage']} | {cfg['total_latency_ms']:.1f} |"
         )
 
-    md.extend([
-        "",
-        "## Missed Items and False Positives (Item IDs)",
-        "",
-    ])
+    md.extend(
+        [
+            "",
+            "## Missed Items and False Positives (Item IDs)",
+            "",
+        ]
+    )
 
     has_misses = False
     for p in primary["pages"]:
@@ -605,6 +605,7 @@ def write_markdown_results(results: dict[str, Any], output_path: Path = DOCS_EVA
 def main() -> None:
     """Entry point for python -m eval.run_eval."""
     import sys
+
     gt_path = "eval/ground_truth.json"
     if "--holdout" in sys.argv:
         gt_path = "eval/ground_truth_holdout.json"

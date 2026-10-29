@@ -133,9 +133,7 @@ def ocr_detect(png: bytes | Image.Image) -> list[Finding]:
 
             # Find all words that intersect the finding span
             intersecting_words = [
-                w
-                for (s_off, e_off, w) in word_spans
-                if max(s_off, f_start) < min(e_off, f_end)
+                w for (s_off, e_off, w) in word_spans if max(s_off, f_start) < min(e_off, f_end)
             ]
             if not intersecting_words:
                 continue

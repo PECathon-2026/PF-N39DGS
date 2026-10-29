@@ -99,5 +99,3 @@ def test_structural_password_toggle_hint() -> None:
     )
     findings = detector.detect([elem])
     assert any(f.type == "PASSWORD" for f in findings)
-
-

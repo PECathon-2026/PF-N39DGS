@@ -69,9 +69,7 @@ class DetectionEngine:
         if enabled_detectors is not None:
             self._detector_names = enabled_detectors
         else:
-            self._detector_names = [
-                d for d in cfg.detectors.enabled if d in list_detectors()
-            ]
+            self._detector_names = [d for d in cfg.detectors.enabled if d in list_detectors()]
         logger.info("Initialized DetectionEngine with detectors: %s", self._detector_names)
 
     def scan(self, context: Any) -> list[Finding]:
@@ -186,17 +184,13 @@ class DetectionEngine:
                             set(existing.rule_id.split("+") + candidate.rule_id.split("+"))
                         )
                         union_rule = "+".join(rules)
-                        new_start = (
-                            min(candidate.start, existing.start)
-                            if (candidate.start is not None and existing.start is not None)
-                            else (existing.start if existing.start is not None else candidate.start)
-                        )
-                        new_end = (
-                            max(candidate.end, existing.end)
-                            if (candidate.end is not None and existing.end is not None)
-                            else (existing.end if existing.end is not None else candidate.end)
-                        )
-                        is_struct = candidate.is_structural and existing.is_structural
+                        if candidate.start is None or existing.start is None:
+                            new_start = None
+                            new_end = None
+                        else:
+                            new_start = min(candidate.start, existing.start)
+                            new_end = max(candidate.end, existing.end)
+                        is_struct = candidate.is_structural or existing.is_structural
                         resolved[idx] = Finding(
                             type=existing.type,
                             start=new_start,

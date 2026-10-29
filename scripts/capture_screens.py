@@ -77,13 +77,15 @@ async def capture_all_pages(
                 f"screenshot saved: {screenshot_path.name} ({file_size} bytes)"
             )
 
-            results.append({
-                "page": page_name,
-                "url": url,
-                "status": status,
-                "screenshot": str(screenshot_path),
-                "size_bytes": file_size,
-            })
+            results.append(
+                {
+                    "page": page_name,
+                    "url": url,
+                    "status": status,
+                    "screenshot": str(screenshot_path),
+                    "size_bytes": file_size,
+                }
+            )
 
         await browser.close()
 

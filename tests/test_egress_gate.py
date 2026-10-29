@@ -9,7 +9,7 @@ import pytest
 
 from privacylens.config import EgressConfig
 from privacylens.gateway.audit import AuditLogger
-from privacylens.gateway.egress import Decision, EgressBlocked, EgressGate, EgressRequest
+from privacylens.gateway.egress import EgressBlocked, EgressGate, EgressRequest
 from privacylens.vault import Vault
 
 
@@ -141,7 +141,11 @@ def test_egress_vault_cross_check(test_gate: EgressGate) -> None:
 def test_egress_image_registry(test_gate: EgressGate) -> None:
     """Verify that registered images pass and unregistered images are blocked."""
     # 1x1 dummy PNG bytes
-    dummy_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    dummy_png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00"
+        b"\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
 
     req_unregistered = EgressRequest(
         method="POST",

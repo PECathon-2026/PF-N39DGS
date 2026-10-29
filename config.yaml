@@ -1,41 +1,33 @@
 app:
-  name: "PrivacyLens"
-  version: "0.1.0"
-  env: "development"
-
+  name: PrivacyLens
+  version: 0.1.0
+  env: development
 server:
-  host: "127.0.0.1"
+  host: 127.0.0.1
   port: 8000
-
 browser:
-  browser_channel: "chromium"
-
+  browser_channel: chromium
 tesseract:
-  tesseract_cmd: "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
-
+  tesseract_cmd: C:\Program Files\Tesseract-OCR\tesseract.exe
 detectors:
   enabled:
-    - "pattern"
-    - "structural"
-    - "presidio"
-    - "vision"
+  - pattern
+  - structural
+  - presidio
+  - vision
   presidio_score_threshold: 0.4
-
 llm:
-  provider: "gemini"
-  model: "gemini-2.5-flash"
+  provider: gemini
+  model: gemini-3.5-flash
   temperature: 0.0
-
 audit:
-  log_path: "logs/audit.jsonl"
-
+  log_path: logs/audit.jsonl
 policy:
-  policy_path: "privacylens/policy/default_policy.yaml"
-  profile: "default"
-
+  policy_path: privacylens/policy/default_policy.yaml
+  profile: default
 egress:
   allowed_hosts:
-    - "generativelanguage.googleapis.com"
-    - "127.0.0.1"
-    - "localhost"
-  on_image_check_failure: "block"
+  - generativelanguage.googleapis.com
+  - 127.0.0.1
+  - localhost
+  on_image_check_failure: block

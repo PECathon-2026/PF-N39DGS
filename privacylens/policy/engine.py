@@ -47,14 +47,13 @@ class PolicyEngine:
             policy_path: Path to YAML policy specification.
             profile: Policy profile ('default' or 'strict'). Defaults to config.yaml setting.
         """
-        self.policy_path = Path(
-            policy_path or Path(__file__).parent / "default_policy.yaml"
-        )
+        self.policy_path = Path(policy_path or Path(__file__).parent / "default_policy.yaml")
         if profile is not None:
             self.profile = profile
         else:
             try:
                 from privacylens.config import get_config
+
                 self.profile = get_config().policy.profile
             except Exception:
                 self.profile = "default"

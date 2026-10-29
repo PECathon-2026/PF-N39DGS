@@ -14,9 +14,7 @@ from privacylens.models import Finding
 logger = logging.getLogger(__name__)
 
 # Precompiled regular expressions
-_EMAIL_RE = re.compile(
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-)
+_EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _PAN_RE = re.compile(r"\b[A-Za-z]{5}[0-9]{4}[A-Za-z]\b")
 _AADHAAR_CANDIDATE_RE = re.compile(r"(?<!\d)[2-9]\d{3}[-\s]?\d{4}[-\s]?\d{4}(?!\d)")
 _CARD_CANDIDATE_RE = re.compile(r"(?<!\d)(?:\d[-\s]?){13,19}(?!\d)")
@@ -140,7 +138,6 @@ class PatternDetector(Detector):
     ) -> list[Finding]:
         """Detect sensitive patterns within a specific text segment."""
         findings: list[Finding] = []
-        combined_context = f"{context_hint} {text}"
 
         # 1. API_KEY & SECRETS
         for m in _SK_KEY_RE.finditer(text):
@@ -350,7 +347,7 @@ class PatternDetector(Detector):
         for m in _IPV4_RE.finditer(text):
             val = m.group()
             # Skip if immediately preceded by version / release keywords
-            pre_text = text[max(0, m.start() - 15):m.start()].lower()
+            pre_text = text[max(0, m.start() - 15) : m.start()].lower()
             if re.search(r"\b(?:version|release|build|v)[ \t:=]*$", pre_text):
                 continue
             if val.split(".") == ["1", "2", "3", "4"]:
@@ -393,10 +390,11 @@ class PatternDetector(Detector):
             except ValueError:
                 pass
 
+        hint_str = context_hint or ""
+
         # 8. OTP (4-8 digits when context matches)
-        if _OTP_CONTEXT_RE.search(combined_context):
+        if _OTP_CONTEXT_RE.search(hint_str):
             for m in _OTP_RE.finditer(text):
-                # Don't overlap with card, aadhaar, or phone
                 findings.append(
                     Finding(
                         type="OTP",
@@ -409,9 +407,25 @@ class PatternDetector(Detector):
                         element_id=element_id,
                     )
                 )
+        else:
+            for m in _OTP_RE.finditer(text):
+                local_window = text[max(0, m.start() - 40) : min(len(text), m.end() + 40)]
+                if _OTP_CONTEXT_RE.search(local_window):
+                    findings.append(
+                        Finding(
+                            type="OTP",
+                            start=m.start(),
+                            end=m.end(),
+                            bbox=bbox,
+                            confidence=0.95,
+                            source="pattern",
+                            rule_id="pattern_otp_context",
+                            element_id=element_id,
+                        )
+                    )
 
         # 9. CVV (3-4 digits when context matches)
-        if _CVV_CONTEXT_RE.search(combined_context):
+        if _CVV_CONTEXT_RE.search(hint_str):
             for m in _CVV_RE.finditer(text):
                 findings.append(
                     Finding(
@@ -425,5 +439,26 @@ class PatternDetector(Detector):
                         element_id=element_id,
                     )
                 )
+        else:
+            for m in _CVV_RE.finditer(text):
+                start, end = m.start(), m.end()
+                if start > 0 and text[start - 1] in ".:/":
+                    continue
+                if end < len(text) and text[end] in ".:/":
+                    continue
+                local_window = text[max(0, start - 30) : min(len(text), end + 30)]
+                if _CVV_CONTEXT_RE.search(local_window):
+                    findings.append(
+                        Finding(
+                            type="CVV",
+                            start=start,
+                            end=end,
+                            bbox=bbox,
+                            confidence=0.95,
+                            source="pattern",
+                            rule_id="pattern_cvv_context",
+                            element_id=element_id,
+                        )
+                    )
 
         return findings

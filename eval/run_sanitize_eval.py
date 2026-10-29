@@ -192,7 +192,7 @@ async def run_full_sanitization_eval() -> dict[str, Any]:
         page_results.append(res)
         print(
             f"  -> Leaks: {res['text_leaks']}, Canary: {res['canary_leaks']}, "
-            f"Decoy Pres: {res['decoy_preservation_rate']*100:.1f}%, "
+            f"Decoy Pres: {res['decoy_preservation_rate'] * 100:.1f}%, "
             f"Raw OCR: {res['ocr_raw_detected']}, "
             f"Sanitized OCR Leaks: {res['ocr_sanitized_leaks']}",
             flush=True,
@@ -246,7 +246,11 @@ async def run_full_sanitization_eval() -> dict[str, Any]:
 
     # Print compact 11-row table
     print("\nSanitization Benchmark Results (11 Pages):")
-    print(f"{'Page':<24} | {'Blocked':<7} | {'View Chars':<10} | {'Prompt Chars':<12} | {'Boxes':<5} | {'Img Withheld':<12} | {'Latency (ms)':<12}")
+    header = (
+        f"{'Page':<24} | {'Blocked':<7} | {'View Chars':<10} | "
+        f"{'Prompt Chars':<12} | {'Boxes':<5} | {'Img Withheld':<12} | {'Latency (ms)':<12}"
+    )
+    print(header)
     print("-" * 95)
     for r in page_results:
         print(
@@ -265,17 +269,12 @@ async def run_full_sanitization_eval() -> dict[str, Any]:
 def append_sanitization_markdown(results: dict[str, Any]) -> None:
     """Append sanitization benchmark section to docs/EVAL_RESULTS.md."""
     lat_no_ocr = (
-        f"{results['latency_without_ocr_p50_ms']} ms / "
-        f"{results['latency_without_ocr_p95_ms']} ms"
+        f"{results['latency_without_ocr_p50_ms']} ms / {results['latency_without_ocr_p95_ms']} ms"
     )
     lat_with_ocr = (
-        f"{results['latency_with_ocr_p50_ms']} ms / "
-        f"{results['latency_with_ocr_p95_ms']} ms"
+        f"{results['latency_with_ocr_p50_ms']} ms / {results['latency_with_ocr_p95_ms']} ms"
     )
-    ocr_ratio = (
-        f"{results['ocr_raw_readable_count']} vs "
-        f"{results['ocr_sanitized_leaked_count']}"
-    )
+    ocr_ratio = f"{results['ocr_raw_readable_count']} vs {results['ocr_sanitized_leaked_count']}"
 
     lines: list[str] = [
         "",
@@ -287,11 +286,11 @@ def append_sanitization_markdown(results: dict[str, Any]) -> None:
         "| :--- | :---: | :---: |",
         f"| **Text Leakage Count** | **{results['total_text_leaks']}** | 0 (Zero Tolerance) |",
         f"| **Canary Leakage Count** | **{results['total_canary_leaks']}** | 0 (Zero Tolerance) |",
-        f"| **Pixel Mask Rate** | **{results['pixel_mask_rate']*100:.1f}%** | 100% |",
+        f"| **Pixel Mask Rate** | **{results['pixel_mask_rate'] * 100:.1f}%** | 100% |",
         f"| **OCR Raw Readable vs Leaked** | **{ocr_ratio}** | 0 leaked |",
         (
             f"| **Context Decoy Preservation** | "
-            f"**{results['context_decoy_preservation_rate']*100:.1f}%** | 100% |"
+            f"**{results['context_decoy_preservation_rate'] * 100:.1f}%** | 100% |"
         ),
         f"| **Latency (Without OCR) p50 / p95** | **{lat_no_ocr}** | Raw measurement |",
         f"| **Latency (With OCR) p50 / p95** | **{lat_with_ocr}** | Raw measurement |",

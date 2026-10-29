@@ -97,4 +97,3 @@ def test_audit_logger_rejects_non_hex_strings(tmp_path: Path) -> None:
                 hash_prefixes=[val],
                 decision="block",
             )
-

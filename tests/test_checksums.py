@@ -75,8 +75,8 @@ def test_pan_valid_and_invalid() -> None:
 
     # Invalid cases
     assert pan_valid("ABCDE1234F") is False  # 'D' is not allowed 4th char
-    assert pan_valid("ABCPE1234") is False   # Too short
-    assert pan_valid("ABCPE12345F") is False # Too long
+    assert pan_valid("ABCPE1234") is False  # Too short
+    assert pan_valid("ABCPE12345F") is False  # Too long
     assert pan_valid("123PE1234F") is False  # Starts with numbers
     assert pan_valid("ABCPEABCDA") is False  # Digits replaced by letters
 
@@ -105,4 +105,3 @@ def test_gen_card_properties() -> None:
 
     # Determinism test
     assert gen_card(seed=888) == gen_card(seed=888)
-

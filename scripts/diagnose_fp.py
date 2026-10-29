@@ -43,15 +43,17 @@ def main() -> None:
                         for idx2, f2 in enumerate(findings)
                     )
                     src = f.source
-                    fp_rows.append({
-                        "page": page_name,
-                        "type": f.type,
-                        "rule_id": f.rule_id,
-                        "source": src,
-                        "element_id": f.element_id or "none",
-                        "tag": tag,
-                        "has_dup": has_dup,
-                    })
+                    fp_rows.append(
+                        {
+                            "page": page_name,
+                            "type": f.type,
+                            "rule_id": f.rule_id,
+                            "source": src,
+                            "element_id": f.element_id or "none",
+                            "tag": tag,
+                            "has_dup": has_dup,
+                        }
+                    )
                     counts[(src, tag)] += 1
 
         print(f"Total False Positives: {len(fp_rows)}")
@@ -62,8 +64,8 @@ def main() -> None:
         print(header)
         print("-" * len(header))
         for r in fp_rows:
-            rule_trunc = r['rule_id'][:25]
-            src_trunc = r['source'][:15]
+            rule_trunc = r["rule_id"][:25]
+            src_trunc = r["source"][:15]
             line = (
                 f"{r['page']:<16} | {r['type']:<10} | {rule_trunc:<25} | "
                 f"{src_trunc:<15} | {r['element_id']:<22} | {r['tag']:<6} | {str(r['has_dup'])}"

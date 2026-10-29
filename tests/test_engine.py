@@ -162,5 +162,3 @@ def test_engine_priority_address_over_name() -> None:
     resolved = engine.resolve_findings([f_name, f_addr])
     assert len(resolved) == 1
     assert resolved[0].type == "ADDRESS"
-
-

@@ -26,6 +26,10 @@ _HINT_PATTERNS = {
     "API_KEY": re.compile(r"\b(?:api[-_]?key|secret[-_]?key|access[-_]?key)\b", re.IGNORECASE),
     "TOKEN": re.compile(r"\b(?:session[-_]?token|auth[-_]?token)\b", re.IGNORECASE),
     "PASSWORD": re.compile(r"\b(?:password|passwd|pwd)\b", re.IGNORECASE),
+    "ADDRESS": re.compile(
+        r"\b(?:street[-_]?address|shipping[-_]?address|billing[-_]?address)\b",
+        re.IGNORECASE,
+    ),
 }
 
 _AUTOCOMPLETE_MAP = {

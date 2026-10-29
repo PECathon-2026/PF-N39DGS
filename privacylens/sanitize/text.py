@@ -40,9 +40,7 @@ def sanitize_plain_text(
     # Check for blocking findings first
     for f in findings:
         sub_text = (
-            raw_text[f.start:f.end]
-            if (f.start is not None and f.end is not None)
-            else raw_text
+            raw_text[f.start : f.end] if (f.start is not None and f.end is not None) else raw_text
         )
         action = policy_engine.decide(f, text=sub_text)
         if action == "block":
@@ -51,7 +49,7 @@ def sanitize_plain_text(
     # Apply masking in reverse order of start position to preserve indices
     sorted_findings = sorted(
         [f for f in findings if f.start is not None and f.end is not None],
-        key=lambda x: (x.start if x.start is not None else -1),
+        key=lambda x: x.start if x.start is not None else -1,
         reverse=True,
     )
 
@@ -213,7 +211,7 @@ class TextSanitizer:
                     # Apply span-based redactions
                     sorted_f = sorted(
                         [f for f in elem_findings if f.start is not None and f.end is not None],
-                        key=lambda x: (x.start if x.start is not None else -1),
+                        key=lambda x: x.start if x.start is not None else -1,
                         reverse=True,
                     )
                     chars = list(raw_text)
@@ -261,12 +259,7 @@ class TextSanitizer:
                 all_redactions.extend(s_reds)
 
             # Scrub label / aria / placeholder attributes
-            raw_label = (
-                elem.associated_label_text
-                or elem.aria_label
-                or elem.placeholder
-                or None
-            )
+            raw_label = elem.associated_label_text or elem.aria_label or elem.placeholder or None
             final_label: str | None = None
             if raw_label:
                 s_lbl, s_lreds, s_lblock, s_lreason = sanitize_plain_text(

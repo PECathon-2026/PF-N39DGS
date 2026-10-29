@@ -166,4 +166,3 @@ def gen_card(seed: int | None = None, prefix: str = "4") -> str:
     card = base + str(check_digit)
     assert luhn_valid(card)
     return card
-

@@ -103,7 +103,10 @@ def test_url_scrubbing() -> None:
     """Test URL scrubbing of query parameters and fragment removal."""
     url = "https://sub.portal.com/app/checkout?token=secret123&session=abc456#details"
     scrubbed = scrub_url(url)
-    assert scrubbed == "https://sub.portal.com/app/checkout?token=%5BREDACTED%3APARAM%5D&session=%5BREDACTED%3APARAM%5D"
+    assert (
+        scrubbed
+        == "https://sub.portal.com/app/checkout?token=%5BREDACTED%3APARAM%5D&session=%5BREDACTED%3APARAM%5D"
+    )
     assert "secret123" not in scrubbed
     assert "#details" not in scrubbed
 
