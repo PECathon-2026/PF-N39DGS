@@ -37,7 +37,12 @@ def mask_image(
     Uses completely solid opaque blackout (fill=(0, 0, 0)) with padding to prevent
     edge-bleed leakage. Does not use reversible blur or pixelation.
     """
+    from core.sanitize.text import is_sanitization_enabled
+
     img = _load_image(image_input)
+    if not is_sanitization_enabled():
+        return img
+
     if img.mode != "RGB":
         img = img.convert("RGB")
 
@@ -45,14 +50,17 @@ def mask_image(
 
     for f in findings:
         loc = f.location
-        if isinstance(loc, dict) and "x" in loc and "y" in loc and "w" in loc and "h" in loc:
-            x0 = max(0, int(loc["x"] - padding))
-            y0 = max(0, int(loc["y"] - padding))
-            x1 = min(img.width, int(loc["x"] + loc["w"] + padding))
-            y1 = min(img.height, int(loc["y"] + loc["h"] + padding))
+        if isinstance(loc, dict) and "x" in loc and "y" in loc:
+            w = loc.get("w", loc.get("width"))
+            h = loc.get("h", loc.get("height"))
+            if w is not None and h is not None:
+                x0 = max(0, int(loc["x"] - padding))
+                y0 = max(0, int(loc["y"] - padding))
+                x1 = min(img.width, int(loc["x"] + w + padding))
+                y1 = min(img.height, int(loc["y"] + h + padding))
 
-            # Draw completely opaque solid black fill (no blur, no pixelation)
-            draw.rectangle([x0, y0, x1, y1], fill=(0, 0, 0), outline=None)
+                # Draw completely opaque solid black fill (no blur, no pixelation)
+                draw.rectangle([x0, y0, x1, y1], fill=(0, 0, 0), outline=None)
 
     return img
 
@@ -79,3 +87,4 @@ def mask_image_b64(
     """Return the masked image as a base64 encoded string."""
     raw_bytes = mask_image_bytes(image_input, findings, padding=padding, format=format)
     return base64.b64encode(raw_bytes).decode("ascii")
+

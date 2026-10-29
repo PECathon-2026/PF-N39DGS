@@ -1,10 +1,39 @@
 from __future__ import annotations
 
 import copy
+import os
 import re
-from typing import Any, Dict, List, Optional, Set
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, List, Optional, Set
 
 from core.detect.regex_layer import Finding, scan_text
+
+# Test-only switch: disables sanitization (never the guard) to prove guard blocks leakage
+_SANITIZATION_ENABLED: bool = True
+
+
+def set_sanitization_enabled(enabled: bool) -> None:
+    """Test-only switch to enable or disable sanitization. Never disables the egress guard."""
+    global _SANITIZATION_ENABLED
+    _SANITIZATION_ENABLED = bool(enabled)
+
+
+def is_sanitization_enabled() -> bool:
+    """Check if sanitization is currently enabled."""
+    if os.environ.get("PRIVACY_LENS_DISABLE_SANITIZATION", "0").lower() in ("1", "true", "yes"):
+        return False
+    return _SANITIZATION_ENABLED
+
+
+@contextmanager
+def disable_sanitization() -> Iterator[None]:
+    """Test-only context manager that temporarily disables sanitization (never the guard)."""
+    prev = is_sanitization_enabled()
+    set_sanitization_enabled(False)
+    try:
+        yield
+    finally:
+        set_sanitization_enabled(prev)
 
 
 def sanitize_text(text: str, findings: Optional[List[Finding]] = None) -> str:
@@ -14,6 +43,8 @@ def sanitize_text(text: str, findings: Optional[List[Finding]] = None) -> str:
     """
     if not text:
         return ""
+    if not is_sanitization_enabled():
+        return text
 
     # Always scan the specific text string directly to get exact character offsets
     direct_findings = scan_text(text)
@@ -79,6 +110,9 @@ def sanitize_dom(snapshot: Dict[str, Any], findings: Optional[List[Finding]] = N
     Preserves element tags, el_N ids, names, types, labels, and buttons intact
     so the agent can reason about layout and act on elements.
     """
+    if not is_sanitization_enabled():
+        return copy.deepcopy(snapshot)
+
     sanitized = copy.deepcopy(snapshot)
 
     # Element-level findings map: el_id -> category

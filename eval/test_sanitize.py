@@ -210,3 +210,4 @@ def test_all_5_scenarios_zero_canary_leakage_and_preservation():
             f"{r['scenario']:<25} | {r['leaked_text_count']:<15} | {r['leaked_img_count']:<15} | {r['preservation_pct']:>15.1f}%"
         )
     print("=" * 80 + "\n")
+
