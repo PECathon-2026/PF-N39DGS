@@ -58,3 +58,4 @@ def detect_text(
 
     # 3. Resolve conflicts, overlapping spans, and prioritize
     return _ENGINE.resolve_findings(raw_findings)
+

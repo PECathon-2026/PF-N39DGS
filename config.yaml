@@ -31,3 +31,11 @@ audit:
 
 policy:
   policy_path: "privacylens/policy/default_policy.yaml"
+  profile: "default"
+
+egress:
+  allowed_hosts:
+    - "generativelanguage.googleapis.com"
+    - "127.0.0.1"
+    - "localhost"
+  on_image_check_failure: "block"

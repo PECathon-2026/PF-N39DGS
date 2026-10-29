@@ -124,9 +124,6 @@ def test_pipeline_fail_closed_on_detector_error() -> None:
 def test_policy_block_withholds_output() -> None:
     """Test that when a policy block action is triggered, view is marked blocked."""
     vault = Vault()
-    policy = PolicyEngine()
-    sanitizer = TextSanitizer(policy_engine=policy, vault=vault)
-
     snapshot = PageSnapshot(
         url="http://127.0.0.1:8765/credentials",
         title="Admin Key Portal",
@@ -142,7 +139,16 @@ def test_policy_block_withholds_output() -> None:
         element_id="key-elem",
     )
 
-    view = sanitizer.sanitize_page_snapshot(snapshot, findings=[block_finding])
-    assert view.blocked is True
-    assert view.image_withheld is True
-    assert "PAGE BLOCKED BY POLICY" in view.to_prompt_text()
+    # In default profile, view is NOT blocked (API_KEY is masked)
+    policy_default = PolicyEngine(profile="default")
+    sanitizer_default = TextSanitizer(policy_engine=policy_default, vault=vault)
+    view_default = sanitizer_default.sanitize_page_snapshot(snapshot, findings=[block_finding])
+    assert view_default.blocked is False
+
+    # In strict profile, view IS blocked
+    policy_strict = PolicyEngine(profile="strict")
+    sanitizer_strict = TextSanitizer(policy_engine=policy_strict, vault=vault)
+    view_strict = sanitizer_strict.sanitize_page_snapshot(snapshot, findings=[block_finding])
+    assert view_strict.blocked is True
+    assert view_strict.image_withheld is True
+    assert "PAGE BLOCKED BY POLICY" in view_strict.to_prompt_text()

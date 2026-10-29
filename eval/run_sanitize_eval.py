@@ -94,6 +94,10 @@ async def evaluate_page_sanitization(
         # 3. Text Leakage Check in to_prompt_text() and model_dump_json()
         prompt_text = view_full.to_prompt_text()
         json_text = view_full.model_dump_json()
+        result["view_chars"] = len(json_text)
+        result["prompt_chars"] = len(prompt_text)
+        result["bounding_box_count"] = len(view_full.redactions)
+        result["latency_ms"] = result["latency_with_ocr_ms"]
         combined_text_lower = (prompt_text + " " + json_text).lower()
         combined_stripped = strip_separators(combined_text_lower)
 
@@ -240,6 +244,21 @@ async def run_full_sanitization_eval() -> dict[str, Any]:
     # Append Sanitization section to docs/EVAL_RESULTS.md
     append_sanitization_markdown(overall_metrics)
 
+    # Print compact 11-row table
+    print("\nSanitization Benchmark Results (11 Pages):")
+    print(f"{'Page':<24} | {'Blocked':<7} | {'View Chars':<10} | {'Prompt Chars':<12} | {'Boxes':<5} | {'Img Withheld':<12} | {'Latency (ms)':<12}")
+    print("-" * 95)
+    for r in page_results:
+        print(
+            f"{r['label']:<24} | "
+            f"{str(r['blocked']):<7} | "
+            f"{r.get('view_chars', 0):<10} | "
+            f"{r.get('prompt_chars', 0):<12} | "
+            f"{r.get('bounding_box_count', 0):<5} | "
+            f"{str(r['image_withheld']):<12} | "
+            f"{r['latency_ms']:<12.1f}"
+        )
+
     return overall_metrics
 
 
@@ -264,18 +283,18 @@ def append_sanitization_markdown(results: dict[str, Any]) -> None:
         "",
         "## 5. Sanitization Pipeline Benchmark",
         "",
-        "| Sanitization Metric | Benchmark Score | Target | Status |",
-        "| :--- | :---: | :---: | :---: |",
-        f"| **Text Leakage Count** | **{results['total_text_leaks']}** | 0 | PASS |",
-        f"| **Canary Leakage Count** | **{results['total_canary_leaks']}** | 0 | PASS |",
-        f"| **Pixel Mask Rate** | **{results['pixel_mask_rate']*100:.1f}%** | 100% | PASS |",
-        f"| **OCR Raw Readable vs Leaked** | **{ocr_ratio}** | 0 leaked | PASS |",
+        "| Sanitization Metric | Benchmark Score | Target |",
+        "| :--- | :---: | :---: |",
+        f"| **Text Leakage Count** | **{results['total_text_leaks']}** | 0 (Zero Tolerance) |",
+        f"| **Canary Leakage Count** | **{results['total_canary_leaks']}** | 0 (Zero Tolerance) |",
+        f"| **Pixel Mask Rate** | **{results['pixel_mask_rate']*100:.1f}%** | 100% |",
+        f"| **OCR Raw Readable vs Leaked** | **{ocr_ratio}** | 0 leaked |",
         (
             f"| **Context Decoy Preservation** | "
-            f"**{results['context_decoy_preservation_rate']*100:.1f}%** | 100% | PASS |"
+            f"**{results['context_decoy_preservation_rate']*100:.1f}%** | 100% |"
         ),
-        f"| **Latency (Without OCR) p50 / p95** | **{lat_no_ocr}** | < 100 ms | PASS |",
-        f"| **Latency (With OCR) p50 / p95** | **{lat_with_ocr}** | < 1000 ms | PASS |",
+        f"| **Latency (Without OCR) p50 / p95** | **{lat_no_ocr}** | Raw measurement |",
+        f"| **Latency (With OCR) p50 / p95** | **{lat_with_ocr}** | Raw measurement |",
         "",
         "### Fail-Closed Safety Guarantees",
         (

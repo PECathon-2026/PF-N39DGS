@@ -72,6 +72,20 @@ class PolicyConfig(BaseModel):
     """Policy engine settings."""
 
     policy_path: Path = Path("privacylens/policy/default_policy.yaml")
+    profile: Literal["default", "strict"] = "default"
+
+
+class EgressConfig(BaseModel):
+    """Egress gateway security settings."""
+
+    allowed_hosts: list[str] = Field(
+        default_factory=lambda: [
+            "generativelanguage.googleapis.com",
+            "127.0.0.1",
+            "localhost",
+        ]
+    )
+    on_image_check_failure: Literal["block", "drop_image"] = "block"
 
 
 class Settings(BaseSettings):
@@ -92,6 +106,7 @@ class Settings(BaseSettings):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     audit: AuditConfig = Field(default_factory=AuditConfig)
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
+    egress: EgressConfig = Field(default_factory=EgressConfig)
 
     @classmethod
     def load(cls, config_path: str | Path = "config.yaml") -> Settings:

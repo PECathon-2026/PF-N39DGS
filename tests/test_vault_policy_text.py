@@ -70,21 +70,33 @@ def test_vault_security_and_serialization_safety() -> None:
 
 def test_policy_engine_normalization_and_fail_closed() -> None:
     """Test policy decision normalization and default fail-closed behavior."""
-    policy = PolicyEngine()
+    policy = PolicyEngine(profile="default")
 
     # Normalization
     assert policy.decide("PERSON") == "mask"
     assert policy.decide("LOCATION") == "mask"
 
-    # Known policy actions
+    # Known policy actions in default profile
     assert policy.decide("CARD") == "mask"
     assert policy.decide("CARD_MASKED") == "allow"
-    assert policy.decide("PASSWORD") == "block"
-    assert policy.decide("OTP") == "block"
-    assert policy.decide("API_KEY") == "block"
+    assert policy.decide("PASSWORD") == "mask"
+    assert policy.decide("OTP") == "mask"
+    assert policy.decide("API_KEY") == "mask"
+    assert policy.decide("JWT") == "mask"
+    assert policy.decide("TOKEN") == "mask"
 
     # Unknown type defaults to mask
     assert policy.decide("UNKNOWN_NEW_ENTITY") == "mask"
+
+    # Strict profile blocks credentials
+    strict_policy = PolicyEngine(profile="strict")
+    assert strict_policy.decide("CARD") == "mask"
+    assert strict_policy.decide("CARD_MASKED") == "allow"
+    assert strict_policy.decide("PASSWORD") == "block"
+    assert strict_policy.decide("OTP") == "block"
+    assert strict_policy.decide("API_KEY") == "block"
+    assert strict_policy.decide("JWT") == "block"
+    assert strict_policy.decide("TOKEN") == "block"
 
 
 def test_url_scrubbing() -> None:
@@ -110,7 +122,7 @@ def test_sanitize_plain_text_mask_and_block() -> None:
     vault = Vault()
     policy = PolicyEngine()
 
-    # Masking
+    # Masking in default profile
     text = "Account contact email is support@example.com."
     sanitized, redactions, blocked, reason = sanitize_plain_text(text, vault, policy)
     assert not blocked
@@ -118,8 +130,16 @@ def test_sanitize_plain_text_mask_and_block() -> None:
     assert "[REDACTED:EMAIL_1]" in sanitized
     assert len(redactions) == 1
 
-    # Blocking
+    # In default profile, API_KEY is masked (not blocked)
     secret_text = "Here is the master API key: " + "AKIA" + "IOSFODNN7EXAMPLE"
-    s_block, r_block, blocked, reason = sanitize_plain_text(secret_text, vault, policy)
-    assert blocked
-    assert "Policy blocked" in (reason or "")
+    s_mask, r_mask, blocked_def, reason_def = sanitize_plain_text(secret_text, vault, policy)
+    assert not blocked_def
+    assert "[REDACTED:API_KEY_1]" in s_mask
+
+    # In strict profile, API_KEY is blocked
+    strict_policy = PolicyEngine(profile="strict")
+    s_block, r_block, blocked_strict, reason_strict = sanitize_plain_text(
+        secret_text, vault, strict_policy
+    )
+    assert blocked_strict
+    assert "Policy blocked" in (reason_strict or "")

@@ -1,60 +1,156 @@
 version: "1.0"
 
+profiles:
+  default:
+    CARD:
+      action: "mask"
+      description: "Payment card numbers (Luhn valid 13-19 digits)"
+    CARD_MASKED:
+      action: "allow"
+      description: "Masked card visual placeholder"
+    AADHAAR:
+      action: "mask"
+      description: "Indian national identity 12-digit number (Verhoeff valid)"
+    PAN:
+      action: "mask"
+      description: "Indian Permanent Account Number (Income Tax)"
+    PASSWORD:
+      action: "mask"
+      description: "Authentication passwords and credentials"
+    OTP:
+      action: "mask"
+      description: "One-time passwords and verification codes"
+    CVV:
+      action: "mask"
+      description: "Card verification value / security code"
+    EXPIRY:
+      action: "mask"
+      description: "Card expiration date"
+    EMAIL:
+      action: "mask"
+      description: "Personal and corporate email addresses"
+    PHONE:
+      action: "mask"
+      description: "International and domestic phone numbers"
+    NAME:
+      action: "mask"
+      description: "Person full names"
+    ADDRESS:
+      action: "mask"
+      description: "Physical street and delivery addresses"
+    API_KEY:
+      action: "mask"
+      description: "Cloud and service API secret tokens"
+    JWT:
+      action: "mask"
+      description: "JSON Web Tokens and signed authorization tokens"
+    TOKEN:
+      action: "mask"
+      description: "Session tokens and authentication tokens"
+    IP:
+      action: "mask"
+      description: "IPv4 and IPv6 network addresses"
+    FACE:
+      action: "mask"
+      description: "Human facial imagery in screen captures"
+    NOTE_WITH_CANARY:
+      action: "mask"
+      description: "Sensitive notes containing canary tokens"
+
+  strict:
+    CARD:
+      action: "mask"
+      description: "Payment card numbers (Luhn valid 13-19 digits)"
+    CARD_MASKED:
+      action: "allow"
+      description: "Masked card visual placeholder"
+    AADHAAR:
+      action: "mask"
+      description: "Indian national identity 12-digit number (Verhoeff valid)"
+    PAN:
+      action: "mask"
+      description: "Indian Permanent Account Number (Income Tax)"
+    PASSWORD:
+      action: "block"
+      description: "Authentication passwords and credentials"
+    OTP:
+      action: "block"
+      description: "One-time passwords and verification codes"
+    CVV:
+      action: "mask"
+      description: "Card verification value / security code"
+    EXPIRY:
+      action: "mask"
+      description: "Card expiration date"
+    EMAIL:
+      action: "mask"
+      description: "Personal and corporate email addresses"
+    PHONE:
+      action: "mask"
+      description: "International and domestic phone numbers"
+    NAME:
+      action: "mask"
+      description: "Person full names"
+    ADDRESS:
+      action: "mask"
+      description: "Physical street and delivery addresses"
+    API_KEY:
+      action: "block"
+      description: "Cloud and service API secret tokens"
+    JWT:
+      action: "block"
+      description: "JSON Web Tokens and signed authorization tokens"
+    TOKEN:
+      action: "block"
+      description: "Session tokens and authentication tokens"
+    IP:
+      action: "mask"
+      description: "IPv4 and IPv6 network addresses"
+    FACE:
+      action: "mask"
+      description: "Human facial imagery in screen captures"
+    NOTE_WITH_CANARY:
+      action: "mask"
+      description: "Sensitive notes containing canary tokens"
+
+# Backward compatibility alias
 entities:
   CARD:
     action: "mask"
-    description: "Payment card numbers (Luhn valid 13-19 digits)"
   CARD_MASKED:
     action: "allow"
-    description: "Masked card visual placeholder"
   AADHAAR:
     action: "mask"
-    description: "Indian national identity 12-digit number (Verhoeff valid)"
   PAN:
     action: "mask"
-    description: "Indian Permanent Account Number (Income Tax)"
   PASSWORD:
-    action: "block"
-    description: "Authentication passwords and credentials"
+    action: "mask"
   OTP:
-    action: "block"
-    description: "One-time passwords and verification codes"
+    action: "mask"
   CVV:
     action: "mask"
-    description: "Card verification value / security code"
   EXPIRY:
     action: "mask"
-    description: "Card expiration date"
   EMAIL:
     action: "mask"
-    description: "Personal and corporate email addresses"
   PHONE:
     action: "mask"
-    description: "International and domestic phone numbers"
   NAME:
     action: "mask"
-    description: "Person full names"
   ADDRESS:
     action: "mask"
-    description: "Physical street and delivery addresses"
   API_KEY:
-    action: "block"
-    description: "Cloud and service API secret tokens"
+    action: "mask"
   JWT:
-    action: "block"
-    description: "JSON Web Tokens and signed authorization tokens"
+    action: "mask"
   TOKEN:
-    action: "block"
-    description: "Session tokens and authentication tokens"
+    action: "mask"
   IP:
     action: "mask"
-    description: "IPv4 and IPv6 network addresses"
   FACE:
     action: "mask"
-    description: "Human facial imagery in screen captures"
   NOTE_WITH_CANARY:
     action: "mask"
-    description: "Sensitive notes containing canary tokens"
 
 custom_rules: []
 

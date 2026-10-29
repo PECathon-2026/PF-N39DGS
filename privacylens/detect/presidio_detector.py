@@ -16,7 +16,8 @@ from privacylens.models import Finding
 logger = logging.getLogger(__name__)
 
 _PRESIDIO_IGNORE_TAGS = {
-    "label", "button", "h1", "h2", "h3", "h4", "h5", "h6", "th", "nav", "a"
+    "label", "button", "h1", "h2", "h3", "h4", "h5", "h6", "th", "nav", "a",
+    "pre", "code", "script", "style", "kbd"
 }
 
 _UI_NON_NAME_WORDS = {

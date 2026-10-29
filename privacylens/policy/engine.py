@@ -36,15 +36,29 @@ class CustomRule(BaseModel):
 class PolicyEngine:
     """Evaluates entity handling and action approvals against loaded policy."""
 
-    def __init__(self, policy_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        policy_path: str | Path | None = None,
+        profile: str | None = None,
+    ) -> None:
         """Initialize engine and load policy configuration.
 
         Args:
             policy_path: Path to YAML policy specification.
+            profile: Policy profile ('default' or 'strict'). Defaults to config.yaml setting.
         """
         self.policy_path = Path(
             policy_path or Path(__file__).parent / "default_policy.yaml"
         )
+        if profile is not None:
+            self.profile = profile
+        else:
+            try:
+                from privacylens.config import get_config
+                self.profile = get_config().policy.profile
+            except Exception:
+                self.profile = "default"
+
         self.entities: dict[str, EntityPolicy] = {}
         self.custom_rules: list[tuple[CustomRule, re.Pattern[str]]] = []
         self.approval_rules: list[dict[str, Any]] = []
@@ -59,7 +73,13 @@ class PolicyEngine:
         with open(self.policy_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
-        raw_entities = data.get("entities", {})
+        # Load from profiles if present, else fallback to top-level entities
+        raw_profiles = data.get("profiles", {})
+        if raw_profiles:
+            raw_entities = raw_profiles.get(self.profile) or raw_profiles.get("default", {})
+        else:
+            raw_entities = data.get("entities", {})
+
         for entity_name, rule in raw_entities.items():
             self.entities[entity_name.upper()] = EntityPolicy(**rule)
 
@@ -72,7 +92,8 @@ class PolicyEngine:
 
         self.approval_rules = data.get("approval_required", {}).get("actions", [])
         logger.info(
-            "Loaded policy with %d entity rules, %d custom rules, %d approval rules",
+            "Loaded policy profile '%s' with %d entity rules, %d custom rules, %d approval rules",
+            self.profile,
             len(self.entities),
             len(self.custom_rules),
             len(self.approval_rules),
