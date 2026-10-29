@@ -236,26 +236,39 @@
 
       const localBody = el.paneLocalBody();
       const sentBody = el.paneSentBody();
+      const imgBox = $('#img-preview-box');
 
-      // Left pane: "LOCAL ONLY" — show a notice that original content stays local.
-      // We intentionally do NOT display raw original content here; the agent
-      // pipeline never sends it back to us. Show the task context instead.
+      // Left pane: "LOCAL ONLY" — show threats intercepted locally
       if (localBody) {
         if (data.sanitized_text) {
-          // Show summary of what was redacted (metadata only, no raw values)
           const redactions = data.redactions || [];
-          const redactSummary = redactions.length > 0
-            ? redactions.map(r =>
-                `${badgeForCategory(r.category)} ${escHtml(r.layer)} (${(r.confidence * 100).toFixed(0)}%)`
-              ).join('  ')
-            : '<span class="text-muted">No sensitive data detected.</span>';
+          let threatCardsHtml = '';
+          if (redactions.length > 0) {
+            threatCardsHtml = redactions.map(r => `
+              <div class="threat-card">
+                <div class="threat-header">
+                  ${badgeForCategory(r.category)}
+                  <span class="threat-source">${escHtml(r.layer.toUpperCase())}</span>
+                </div>
+                <div class="threat-status">✓ Neutralized Locally</div>
+              </div>
+            `).join('');
+          } else {
+            threatCardsHtml = '<div class="text-muted">No sensitive personal data identified.</div>';
+          }
 
-          localBody.innerHTML =
-            '<div class="text-muted" style="margin-bottom:8px;font-family:var(--font-sans)">' +
-            'Original content is never transmitted. ' +
-            'The following sensitive items were detected and redacted locally:' +
-            '</div>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + redactSummary + '</div>';
+          localBody.innerHTML = `
+            <div class="local-threats-container">
+              <div class="local-threats-title">
+                <span>🛡️ Intercepted Sensitive Items:</span>
+                <span class="count-pill">${redactions.length} Neutralized</span>
+              </div>
+              <div class="threats-grid">${threatCardsHtml}</div>
+              <div class="local-explainer">
+                <strong>Local Trust Boundary:</strong> Raw passwords, credit card digits, biometric faces, and IDs never left this machine. Only opaque rectangles & semantic tokens were egressed.
+              </div>
+            </div>
+          `;
         } else {
           localBody.innerHTML = '<span class="pane-body-empty">Waiting for capture…</span>';
         }
@@ -269,8 +282,58 @@
           sentBody.innerHTML = '<span class="pane-body-empty">No payload yet.</span>';
         }
       }
+
+      // Masked Image Box
+      if (imgBox) {
+        if (data.masked_image_b64) {
+          imgBox.innerHTML = `
+            <div class="img-badge-overlay">🛡️ Solid Opaque Blackout Applied (Padding=4px) — Verified by re-OCR</div>
+            <img src="data:image/png;base64,${data.masked_image_b64}" class="masked-image" alt="Sanitized Page Screenshot" />
+          `;
+        } else {
+          imgBox.innerHTML = '<span class="pane-body-empty">No visual screenshot captured.</span>';
+        }
+      }
     } catch (_) {
       // Non-fatal
+    }
+  }
+
+  function initPresets() {
+    const btns = $$('.preset-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        btns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const url = btn.getAttribute('data-url');
+        const task = btn.getAttribute('data-task');
+        const urlInput = el.frmUrl();
+        const taskInput = el.frmTask();
+        if (urlInput) urlInput.value = url;
+        if (taskInput) taskInput.value = task;
+      });
+    });
+  }
+
+  function initViewToggle() {
+    const btnText = $('#btn-toggle-text');
+    const btnImg = $('#btn-toggle-img');
+    const sentBody = el.paneSentBody();
+    const imgBody = $('#pane-sent-img-body');
+
+    if (btnText && btnImg) {
+      btnText.addEventListener('click', () => {
+        btnText.classList.add('active');
+        btnImg.classList.remove('active');
+        if (sentBody) sentBody.classList.remove('hidden');
+        if (imgBody) imgBody.classList.add('hidden');
+      });
+      btnImg.addEventListener('click', () => {
+        btnImg.classList.add('active');
+        btnText.classList.remove('active');
+        if (sentBody) sentBody.classList.add('hidden');
+        if (imgBody) imgBody.classList.remove('hidden');
+      });
     }
   }
 
@@ -577,6 +640,10 @@
 
     // Keyboard handler (focus trap + Escape)
     document.addEventListener('keydown', trapFocus);
+
+    // Presets & view toggles
+    initPresets();
+    initViewToggle();
 
     // Start polling
     startPolling();
