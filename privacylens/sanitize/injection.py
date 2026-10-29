@@ -47,11 +47,13 @@ _INJECTION_PATTERNS: list[re.Pattern[str]] = [
         re.IGNORECASE,
     ),
     re.compile(
-        r"\b(?:disable|bypass|deactivate|turn off)\s+(?:local\s+)?(?:sanitization|redaction|security|filters?|gate)\b",
+        r"\b(?:disable|bypass|deactivate|turn off)\s+(?:local\s+)?"
+        r"(?:sanitization|redaction|security|filters?|gate)\b",
         re.IGNORECASE,
     ),
     re.compile(
-        r"\b(?:dump|export|extract)\s+(?:all\s+)?(?:active\s+)?(?:surrogate\s+)?(?:vault|secrets?|keys?|entries)\b",
+        r"\b(?:dump|export|extract)\s+(?:all\s+)?(?:active\s+)?"
+        r"(?:surrogate\s+)?(?:vault|secrets?|keys?|entries)\b",
         re.IGNORECASE,
     ),
     re.compile(
