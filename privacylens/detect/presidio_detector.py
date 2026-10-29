@@ -104,6 +104,21 @@ _UI_NON_NAME_WORDS = {
     "DOCUMENT",
     "DOCUMENTS",
     "API",
+    "VISA",
+    "OPENAI",
+    "MASTERCARD",
+    "AMEX",
+    "DISCOVER",
+    "PASSWORD",
+    "AUTHENTICATOR",
+    "GUEST",
+    "PARTICIPANT",
+    "HOST",
+    "CONFERENCE",
+    "MEETING",
+    "PORTAL",
+    "DEVELOPER",
+    "PRIMARY",
 }
 
 _SINGLETON_ANALYZER: AnalyzerEngine | None = None

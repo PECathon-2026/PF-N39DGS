@@ -57,8 +57,16 @@
         <div class="input-bar">
             <input type="text" id="chat-reply-input" placeholder="Type a response to the customer...">
             <button type="button" id="btn-send-message" class="btn-send">Send Reply</button>
+            <button type="button" id="btn-escalate" class="btn-send" style="background:#b45309; margin-left:6px;">Escalate Ticket</button>
         </div>
+        <div id="escalated" style="display:none; margin-top:10px; color:#1b5e20; font-weight:bold;">Ticket Escalated to Senior Compliance Team</div>
     </div>
+    <script>
+        document.getElementById('btn-escalate').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('escalated').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
 

@@ -103,7 +103,14 @@
                 </div>
             </div>
         </div>
+        <div id="rotated" style="display:none; margin-top:15px; color:#1b5e20; font-weight:bold;">Primary API Key Rotated Successfully</div>
     </div>
+    <script>
+        document.getElementById('btn-rotate-key').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('rotated').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
 

@@ -72,8 +72,8 @@ def test_run_task_success_flow(monkeypatch: object) -> None:
         # Monkeypatch sanitize_page to return our mock view without browser launch
         import privacylens.agent.loop as loop_mod
 
-        async def _mock_sanitize(p: object, **kw: object) -> tuple[SanitizedView, Vault]:
-            return _make_mock_view()
+        async def _mock_sanitize(p: object, **kw: object) -> SanitizedView:
+            return _make_mock_view()[0]
 
         monkeypatch.setattr(loop_mod, "sanitize_page", _mock_sanitize)  # type: ignore[attr-defined]
 
@@ -119,8 +119,8 @@ def test_run_task_approval_denial(monkeypatch: object) -> None:
 
         import privacylens.agent.loop as loop_mod
 
-        async def _mock_sanitize(p: object, **kw: object) -> tuple[SanitizedView, Vault]:
-            return _make_mock_view()
+        async def _mock_sanitize(p: object, **kw: object) -> SanitizedView:
+            return _make_mock_view()[0]
 
         monkeypatch.setattr(loop_mod, "sanitize_page", _mock_sanitize)  # type: ignore[attr-defined]
 
@@ -157,8 +157,8 @@ def test_run_task_egress_gate_block(monkeypatch: object) -> None:
 
         import privacylens.agent.loop as loop_mod
 
-        async def _mock_sanitize(p: object, **kw: object) -> tuple[SanitizedView, Vault]:
-            return _make_mock_view()
+        async def _mock_sanitize(p: object, **kw: object) -> SanitizedView:
+            return _make_mock_view()[0]
 
         monkeypatch.setattr(loop_mod, "sanitize_page", _mock_sanitize)  # type: ignore[attr-defined]
 
@@ -190,8 +190,8 @@ def test_run_task_loop_detection(monkeypatch: object) -> None:
 
         import privacylens.agent.loop as loop_mod
 
-        async def _mock_sanitize(p: object, **kw: object) -> tuple[SanitizedView, Vault]:
-            return _make_mock_view()
+        async def _mock_sanitize(p: object, **kw: object) -> SanitizedView:
+            return _make_mock_view()[0]
 
         monkeypatch.setattr(loop_mod, "sanitize_page", _mock_sanitize)  # type: ignore[attr-defined]
 

@@ -89,3 +89,4 @@ def test_callback_approver_async() -> None:
         assert await approver.request(ClickAction(element_id="btn-deny")) is False
 
     asyncio.run(_test())
+

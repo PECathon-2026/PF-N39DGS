@@ -77,8 +77,16 @@
     <div class="controls-bar">
         <button type="button" id="btn-mute" class="btn-ctrl">Mute Mic</button>
         <button type="button" id="btn-camera" class="btn-ctrl">Toggle Camera</button>
+        <button type="button" id="btn-admit-guest" class="btn-ctrl" style="background:#059669;">Admit Guest</button>
         <button type="button" id="btn-leave-meeting" class="btn-ctrl danger">Leave Meeting</button>
     </div>
+    <div id="participant-count" style="display:none; text-align:center; margin-top:15px; color:#1b5e20; font-weight:bold;">Participants: 4 (Guest Admitted)</div>
+    <script>
+        document.getElementById('btn-admit-guest').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('participant-count').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
 

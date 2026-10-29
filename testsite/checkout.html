@@ -61,8 +61,19 @@
             </div>
 
             <button type="submit" id="btn-place-order" class="btn-submit">Place Order</button>
+            <div id="confirmation" style="display:none; margin-top:15px; color:#1b5e20; font-weight:bold;">Order Confirmed: #ORD-9912. Payment Authorized.</div>
         </form>
     </div>
+    <script>
+        document.getElementById('checkout-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            document.getElementById('confirmation').style.display = 'block';
+        });
+        document.getElementById('btn-place-order').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('confirmation').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
 

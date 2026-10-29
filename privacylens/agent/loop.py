@@ -39,6 +39,7 @@ from privacylens.sanitize.injection import (
     get_injection_system_instructions,
     wrap_untrusted_content,
 )
+from privacylens.vault import Vault
 
 logger = logging.getLogger(__name__)
 
@@ -256,8 +257,11 @@ async def run_task(
             logger.info("--- Starting agent step %d / %d ---", step, limit_steps)
 
             # 1. Perception & Local Sanitization
-            view, vault = await sanitize_page(page, capture_visual=True)
+            vault = Vault()
+            view = await sanitize_page(page, vault=vault, capture_screenshot=False)
             executor.vault = vault
+            if hasattr(llm, "gate") and getattr(llm, "gate", None) is not None:
+                llm.gate.register_vault(vault)
             view = defend_view(view, bus=event_bus, step=step)
 
             event_bus.emit(

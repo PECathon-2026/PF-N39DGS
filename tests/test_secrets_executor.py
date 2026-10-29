@@ -117,3 +117,4 @@ def test_executor_browser_mock_execution() -> None:
         mock_page.goto.assert_awaited_once()
 
     asyncio.run(_test())
+

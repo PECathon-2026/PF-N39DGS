@@ -232,6 +232,10 @@ class PatternDetector(Detector):
                 )
             )
         for m in _HIGH_ENTROPY_KEY_RE.finditer(text):
+            if m.start() > 0 and text[m.start() - 1] == "[":
+                close_bracket = text.find("]", m.end())
+                if close_bracket != -1 and close_bracket - m.end() < 2:
+                    continue
             val = m.group(1)
             findings.append(
                 Finding(

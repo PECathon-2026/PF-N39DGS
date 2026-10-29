@@ -37,12 +37,23 @@
                 <input type="text" id="otp-input" name="otp" value="738291" maxlength="6" inputmode="numeric" required>
             </div>
             <button type="submit" id="btn-signin" class="btn-signin">Sign in</button>
+            <div id="welcome" style="display:none; margin-top:15px; color:#1b5e20; font-weight:bold;">Welcome back, authenticated user!</div>
             <div class="footer-links">
                 <a href="#reset" id="link-forgot-password">Forgot password?</a>
                 <a href="#help" id="link-support-help">Security Support</a>
             </div>
         </form>
     </div>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            document.getElementById('welcome').style.display = 'block';
+        });
+        document.getElementById('btn-signin').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('welcome').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
 
