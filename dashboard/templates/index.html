@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrivacyLens Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ── App Header ─────────────────────────────────────────────────────── -->
+<header class="app-header">
+  <div class="logo">
+    <div class="logo-icon">PL</div>
+    PrivacyLens
+  </div>
+  <span class="text-muted" style="font-size:0.8125rem;">Local Privacy Gateway · AI Browser Agent</span>
+</header>
+
+<!-- ── App Body ───────────────────────────────────────────────────────── -->
+<main class="app-body">
+
+  <!-- ── Pipeline Stage Bar ─────────────────────────────────────────── -->
+  <div class="stage-bar" role="progressbar" aria-label="Pipeline stages">
+    <div class="stage-item" data-stage="CAPTURE">
+      <div class="stage-label">Capture</div>
+    </div>
+    <span class="stage-arrow" aria-hidden="true">→</span>
+    <div class="stage-item" data-stage="DETECT">
+      <div class="stage-label">Detect</div>
+    </div>
+    <span class="stage-arrow" aria-hidden="true">→</span>
+    <div class="stage-item" data-stage="SANITIZE">
+      <div class="stage-label">Sanitize</div>
+    </div>
+    <span class="stage-arrow" aria-hidden="true">→</span>
+    <div class="stage-item" data-stage="GUARD">
+      <div class="stage-label">Guard</div>
+    </div>
+    <span class="stage-arrow" aria-hidden="true">→</span>
+    <div class="stage-item" data-stage="MODEL">
+      <div class="stage-label">Model</div>
+    </div>
+    <span class="stage-arrow" aria-hidden="true">→</span>
+    <div class="stage-item" data-stage="VALIDATE">
+      <div class="stage-label">Validate</div>
+    </div>
+    <span class="stage-arrow" aria-hidden="true">→</span>
+    <div class="stage-item" data-stage="EXECUTE">
+      <div class="stage-label">Execute</div>
+    </div>
+  </div>
+
+  <!-- ── Task Form ──────────────────────────────────────────────────── -->
+  <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:16px;box-shadow:var(--shadow-card)">
+    <div class="task-form">
+      <div class="form-group fg-url">
+        <label for="frm-url">Target URL</label>
+        <input type="url" id="frm-url" placeholder="https://example.com/checkout" autocomplete="off" />
+      </div>
+      <div class="form-group fg-task">
+        <label for="frm-task">Task Instruction</label>
+        <input type="text" id="frm-task" placeholder="Enter task instruction…" autocomplete="off" />
+      </div>
+      <div class="form-group fg-steps">
+        <label for="frm-steps">Max Steps</label>
+        <input type="number" id="frm-steps" value="5" min="1" max="20" />
+      </div>
+      <div class="flex-row" style="align-self:flex-end">
+        <button class="btn btn-primary" id="btn-run">▶ Run Task</button>
+        <button class="btn btn-ghost" id="btn-stop" onclick="window.location.reload()">■ Stop</button>
+      </div>
+    </div>
+
+    <!-- Status row -->
+    <hr class="divider" />
+    <div class="status-row">
+      <span id="status-guard-chip" class="chip chip-idle">● IDLE</span>
+      <span id="status-last-action" class="last-action"></span>
+    </div>
+
+    <!-- Metrics (shown once eval results are available) -->
+    <div id="metrics-bar" class="metrics-bar hidden">
+      <div class="metric-item">
+        <div class="metric-value" id="m-recall">—</div>
+        <div class="metric-label">Recall</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-value" id="m-precision">—</div>
+        <div class="metric-label">Precision</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-value" id="m-latency">—</div>
+        <div class="metric-label">Latency p50</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-value" id="m-leakage">—</div>
+        <div class="metric-label">Leakage</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Blocked Banner ────────────────────────────────────────────── -->
+  <div id="banner-blocked" class="banner banner-blocked hidden" role="alert">
+    <div class="banner-icon">🚫</div>
+    <div class="banner-body">
+      <div class="banner-title">Nothing was sent — payload blocked by egress guard.</div>
+      <div class="banner-detail" id="banner-blocked-detail"></div>
+    </div>
+  </div>
+
+  <!-- ── Error / Warn Banner ───────────────────────────────────────── -->
+  <div id="banner-warn" class="banner banner-warn hidden" role="alert">
+    <div class="banner-icon">⚠️</div>
+    <div class="banner-body">
+      <div class="banner-title">Pipeline encountered an error — request blocked (fail-closed).</div>
+      <div class="banner-detail" id="banner-warn-detail"></div>
+    </div>
+  </div>
+
+  <!-- ── Navigation Tabs ───────────────────────────────────────────── -->
+  <div class="nav-wrapper">
+    <div class="nav-header">
+      <button class="nav-tab active" data-tab="agent">Live Agent</button>
+      <button class="nav-tab" data-tab="eval">Evaluation Results</button>
+    </div>
+
+    <!-- Live Agent Tab -->
+    <div class="tab-pane active" id="tab-agent">
+
+      <!-- Empty state (shown when no task has been run) -->
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">🔒</div>
+        <div class="empty-title">No task running</div>
+        <div class="empty-desc">Enter a URL and task instruction above, then click <strong>Run Task</strong> to start the privacy-protected agent.</div>
+      </div>
+
+      <!-- Before / After panes -->
+      <div id="panes-wrapper" class="panes hidden">
+
+        <!-- Left: LOCAL ONLY -->
+        <div class="pane">
+          <div class="pane-header pane-header-local">
+            <span class="pane-header-icon">🔒</span>
+            LOCAL ONLY — never transmitted
+          </div>
+          <div class="pane-body" id="pane-local-body">
+            <span class="pane-body-empty">Waiting for capture…</span>
+          </div>
+        </div>
+
+        <!-- Right: SENT TO MODEL -->
+        <div class="pane">
+          <div class="pane-header pane-header-model">
+            <span class="pane-header-icon">📤</span>
+            SENT TO MODEL
+          </div>
+          <div class="pane-body" id="pane-sent-body">
+            <span class="pane-body-empty">No payload yet.</span>
+          </div>
+        </div>
+
+      </div><!-- /panes-wrapper -->
+    </div><!-- /tab-agent -->
+
+    <!-- Evaluation Results Tab -->
+    <div class="tab-pane" id="tab-eval">
+      <div class="flex-row" style="justify-content:space-between;margin-bottom:16px">
+        <div>
+          <h2 style="font-size:1.125rem;font-weight:700">Evaluation Results</h2>
+          <div class="text-muted" style="margin-top:2px">
+            Reproducible harness — 5 standard + 2 adversarial scenarios. Protected vs. baseline.
+          </div>
+        </div>
+        <div class="flex-row">
+          <span id="eval-running" class="chip chip-warn hidden">◌ Running…</span>
+          <button class="btn btn-primary btn-sm" id="btn-eval-run">▶ Run Evaluation</button>
+        </div>
+      </div>
+      <div id="eval-content">
+        <div class="empty-state">
+          <div class="empty-icon">📊</div>
+          <div class="empty-title">No evaluation results yet</div>
+          <div class="empty-desc">Click <strong>Run Evaluation</strong> to start the full test suite across all scenarios.</div>
+        </div>
+      </div>
+    </div><!-- /tab-eval -->
+
+  </div><!-- /nav-wrapper -->
+
+</main><!-- /app-body -->
+
+<!-- ── Approval Modal ─────────────────────────────────────────────────── -->
+<div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">
+      <span class="modal-title-icon">⚠️</span>
+      Approval Required — Sensitive Action
+    </div>
+
+    <div class="modal-row">
+      <div class="modal-row-label">Action Type</div>
+      <div class="modal-row-value" id="modal-action-type">—</div>
+    </div>
+
+    <div class="modal-row">
+      <div class="modal-row-label">Target Element</div>
+      <div class="modal-row-value" id="modal-target">—</div>
+    </div>
+
+    <div class="modal-row">
+      <div class="modal-row-label">Agent Reasoning (sanitized)</div>
+      <div class="modal-row-value" id="modal-thought">—</div>
+    </div>
+
+    <div class="modal-row">
+      <div class="modal-row-label">Risk Level</div>
+      <div><span class="modal-risk-chip" id="modal-risk">HIGH</span></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-reject-btn">✕ Reject</button>
+      <button class="btn btn-primary" id="modal-approve-btn">✓ Approve</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
+

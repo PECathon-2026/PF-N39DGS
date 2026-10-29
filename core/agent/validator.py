@@ -200,11 +200,12 @@ def validate_action(action: Action, snapshot: Dict[str, Any]) -> ValidationResul
             requires_approval = True
             risk_level = "HIGH"
 
-    # Also check action thought or value for sensitive action intent
-    thought_lower = (action.thought or "").lower()
-    if any(kw in thought_lower for kw in ("pay", "checkout", "submit order", "delete account")):
-        requires_approval = True
-        risk_level = "HIGH"
+    # Also check action thought or value for sensitive action intent (for non-terminal actions)
+    if act_type != "done":
+        thought_lower = (action.thought or "").lower()
+        if any(kw in thought_lower for kw in ("pay", "checkout", "submit order", "delete account")):
+            requires_approval = True
+            risk_level = "HIGH"
 
     action.requires_approval = requires_approval
     action.risk_level = risk_level
