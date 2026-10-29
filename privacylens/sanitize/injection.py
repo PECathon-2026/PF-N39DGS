@@ -46,6 +46,26 @@ _INJECTION_PATTERNS: list[re.Pattern[str]] = [
         r"\b(?:send|post|transmit|forward)\s+(?:the\s+)?(?:secrets?|passwords?|data)\s+(?:to|towards)\s+https?://",
         re.IGNORECASE,
     ),
+    re.compile(
+        r"\b(?:disable|bypass|deactivate|turn off)\s+(?:local\s+)?(?:sanitization|redaction|security|filters?|gate)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:dump|export|extract)\s+(?:all\s+)?(?:active\s+)?(?:surrogate\s+)?(?:vault|secrets?|keys?|entries)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:priority\s+override|maintenance\s+mode|root\s+kernel)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:unmask|deduce|reconstruct|guess|reverse|repeat)\b.*?\b(?:redacted|masked|hidden)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:navigate|redirect|browse|go)\s+to\s+https?://\S+",
+        re.IGNORECASE,
+    ),
 ]
 
 
