@@ -80,6 +80,17 @@
         { "value": "1.2.3.4", "type": "VERSION", "selector": "#decoy-version", "reason": "Semantic versioning label structured as 4 octets" },
         { "value": "#FFAA00", "type": "HEX_COLOR", "selector": "#decoy-color", "reason": "CSS hex color code" }
       ]
+    },
+    "imagetext.html": {
+      "url": "http://127.0.0.1:8765/holdout/imagetext.html",
+      "sensitive_items": [
+        { "value": "4532015112830366", "type": "CARD", "selector": "#card-canvas" },
+        { "value": "embedded.canary.ocr@privacylens.test", "type": "EMAIL", "selector": "#scanned-email-img" }
+      ],
+      "decoys": [
+        { "value": "REF-2026-9912", "type": "REFERENCE_CODE", "selector": "#decoy-ref", "reason": "Document indexing reference code" }
+      ]
     }
   }
 }
+

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visual Document and Receipt Archive</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 40px; background: #fdfdfd; color: #222; }
+        .card-container, .image-container { margin: 20px 0; padding: 15px; border: 1px solid #ddd; background: #fff; border-radius: 6px; }
+        canvas { display: block; background: #f7f9fa; border: 1px solid #ccc; }
+        .decoy-box { color: #666; font-size: 13px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <h2>Visual Document Archive</h2>
+    <p>Financial records and archived receipt scans.</p>
+
+    <div class="card-container">
+        <h3>Rendered Payment Card</h3>
+        <!-- Synthetic payment card drawn strictly on canvas; not present in DOM tree -->
+        <canvas id="card-canvas" width="400" height="60"></canvas>
+    </div>
+
+    <div class="image-container">
+        <h3>Archived Scanned Document Header</h3>
+        <!-- Contact email embedded in PIL-generated image data URI -->
+        <img id="scanned-email-img" alt="Scanned Document Header" src="data:image/png;base64,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" />
+    </div>
+
+    <div class="decoy-box">
+        <span id="decoy-ref">Reference Code: REF-2026-9912</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('card-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#111';
+            ctx.font = 'bold 20px monospace';
+            ctx.fillText('Card: 4532015112830366', 20, 38);
+        }
+    </script>
+</body>
+</html>

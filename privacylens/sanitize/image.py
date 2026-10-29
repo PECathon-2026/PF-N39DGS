@@ -295,7 +295,17 @@ async def sanitize_screenshot(
 
         out_buf = io.BytesIO()
         img.save(out_buf, format="PNG")
-        return out_buf.getvalue(), False
+        masked_png = out_buf.getvalue()
+
+        # 5. Part 3: OCR defence-in-depth layer
+        from privacylens.detect.vision import ocr_redact_defence_in_depth
+
+        final_png, ocr_withheld = ocr_redact_defence_in_depth(masked_png)
+        if ocr_withheld or final_png is None:
+            logger.warning("OCR defence layer withheld image")
+            return None, True
+
+        return final_png, False
 
     except Exception:
         logger.error(
