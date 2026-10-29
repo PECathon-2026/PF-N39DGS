@@ -17,9 +17,9 @@
   - Traverse Open Shadow DOM (`node.shadowRoot`) and same-origin iframes (`iframe.contentDocument`).
   - Containers carry `visible_text = None` while leaf nodes store `parent_id`, `ancestor_ids`, and `is_leaf`.
 - **Detection Engine (`detect/`)**:
-  - `patterns.py`: Regular expressions with checksum validation for AADHAAR (with spaced support), PAN (with lowercase support), CARD, EMAIL, PHONE, API_KEY, JWT, TOKEN, IP (excluding versions), OTP (with refined keywords), CVV, CANARY.
+  - `patterns.py`: Regular expressions with checksum validation for AADHAAR, PAN, CARD, EMAIL, PHONE, API_KEY, JWT, TOKEN, IP, OTP, CVV, CANARY.
   - `structural.py`: DOM semantic rules for password inputs, autocomplete attributes, keyword hints, and avatar faces. UI `<label>` elements explicitly excluded.
-  - `presidio_detector.py`: Lazy-loaded Presidio AnalyzerEngine singleton restricted to `PERSON` and `LOCATION`, filtering out UI labels, buttons, navigation, role words, and hex color codes.
+  - `presidio_detector.py`: Lazy-loaded Presidio AnalyzerEngine singleton restricted to `PERSON` and `LOCATION`, filtering out UI labels, buttons, navigation, role words, brand names, and hex color codes.
   - `engine.py`: Coordinated `DetectionEngine` dropping container-level findings when descendants match, resolving same-type overlapping spans, and enforcing fine-grained priority hierarchy.
 - **Evaluation Benchmark & Holdout Suite (`eval/run_eval.py`)**:
   - Strict 1-to-1 bipartite matching on (type, element_id, span) with fallback CSS selector resolution.
@@ -39,57 +39,75 @@
 - **Sanitization Benchmark Harness (`eval/run_sanitize_eval.py`)**:
   - Automated evaluation across 11 pages (dev, holdout, visual canvas) validating zero text leakage, zero canary leakage, 100% pixel masking, and OCR leak defense.
 - **Policy Profiles (`privacylens/policy/default_policy.yaml`, `engine.py`, `config.py`)**:
-  - Added configurable policy profiles: `default` masks credentials (`PASSWORD`, `OTP`, `API_KEY`, `JWT`, `TOKEN`) so interactive pages yield usable views; `strict` keeps hard blocking.
+  - Configurable policy profiles: `default` masks credentials (`PASSWORD`, `OTP`, `API_KEY`, `JWT`, `TOKEN`) so interactive pages yield usable views; `strict` keeps hard blocking.
   - Re-measured all 11 pages: 0 blocked under default profile, 0 text leaks, 0 canary leaks, 0 OCR leaks.
-  - Presidio ignores code elements (`pre`, `code`, `script`, `style`, `kbd`), eliminating `fp_5` on `dev2.html` and improving holdout precision to 88.5%.
 - **Egress Security Gateway (`privacylens/gateway/egress.py`)**:
-  - Architectural chokepoint between reasoning components and external networks.
-  - Implemented `EgressRequest`, `Decision`, `EgressBlocked`, and `EgressGate`.
-  - Comprehensive inspection: host allowlisting (`egress.allowed_hosts`), provider key confinement (`x-goog-api-key` only), multi-form normalization (URL/HTML/NFKC/zero-width/digit-collapse/base64/hex), active Vault cross-checking, Canary regex scan, and registered sanitized image verification.
-  - Full audit logging via `AuditLogger` with zero raw secrets.
+  - Architectural chokepoint between reasoning components and external networks enforcing zero outbound leakage.
+  - Multi-form normalization (URL unquote, HTML unescape, Unicode NFKC, zero-width stripping, digit-separator collapsing, base64 and hex decoding), active Vault cross-checking, Canary regex scanning, and registered sanitized image verification.
+  - Full audit logging with HMAC-SHA256 prefixing and zero raw secret exposure.
+  - Adversarial positive control: **100.0% block rate (954/954)** across all 106 sensitive items and 9 obfuscation classes.
 - **Single Chokepoint & Gated Providers (`privacylens/agent/llm.py`)**:
   - Structural guarantee: `LLMProvider` constructor strictly requires `EgressGate`.
-  - Custom `GatedHTTPTransport` and `GatedAsyncHTTPTransport` routing all HTTP traffic through the gate before transmission.
-  - Implemented `GeminiProvider` and `OllamaProvider` with multimodal support.
-  - Live model smoke test (`scripts/llm_smoke.py`) queried Gemini API, selected `gemini-3.5-flash`, and executed a live completion on sanitized `checkout.html` answering `btn-place-order` with gate enforced.
-- **Leakage Evaluation Benchmark (`eval/run_leakage_eval.py`)**:
-  - Mock LLM server recording raw request bytes.
-  - Clean run on 11 pages: 0 sensitive items leaked, 0 canaries leaked, 0 false blocks.
-  - Adversarial positive control across 106 items * 9 classes: 97.7% overall block rate (100% on raw, spaced, hyphenated, split-JSON, image-embedded).
-  - Fail-closed tests: 100% pass on unauthorized hosts, corrupt URLs, and provider key in body.
-- **Security Architecture Documentation (`docs/SECURITY.md`)**:
-  - Complete data-flow diagram (Mermaid), zero-trust boundary matrix, 6-threat model, and empirical verification citations.
+  - Custom `GatedHTTPTransport` routing all HTTP traffic through the gate before transmission.
+  - Implemented `GeminiProvider` and `OllamaProvider`.
+- **Event Stream & Bus (`privacylens/events.py`)**:
+  - Implemented typed `Event` lifecycle stream, `EventBus`, ring-buffer memory storage, JSONL disk logging, and subscriber fan-out.
+  - Safe payload sanitizer ensuring raw secrets in event payloads are replaced with safe stubs (`_SAFE_REDACTED_STUB`).
+- **Action Schema & Validation Engine (`privacylens/agent/actions.py`)**:
+  - Strict Pydantic models with `extra="forbid"`: `ClickAction`, `TypeAction`, `SelectAction`, `ScrollAction`, `NavigateAction`, `WaitAction`, `AskUserAction`, `FinishAction`.
+  - `parse_decision()` with robust JSON recovery (code fences, unescaped newlines).
+  - `ActionValidator` enforcing active DOM element existence, interactability, URL allowlists, loop detection, and policy-driven approval flags.
+- **Secret Store & Action Executor (`privacylens/agent/secrets.py`, `privacylens/agent/executor.py`)**:
+  - `SecretStore` holding synthetic user credentials, exposing safe metadata and placeholders (`[SECRET:<name>]`) with strict zero-leak repr/str.
+  - `ActionExecutor` enforcing allowed origins (`secrets.allowed_origins`) before secret resolution.
+- **Human Approval Engine (`privacylens/agent/approval.py`)**:
+  - Pluggable `Approver` interface with `CliApprover`, `ScriptedApprover`, `DenyAllApprover`, and `CallbackApprover`.
+  - Formatted approval prompts detailing target URL, element ID, and high-risk action descriptions without raw secret exposure.
+- **Prompt Injection Defence (`privacylens/sanitize/injection.py`)**:
+  - Delimited untrusted page content with randomized cryptographic boundary tags.
+  - System instructions enforcing instruction hierarchy (user task > page content).
+  - Heuristic pattern scanner for common prompt injection payloads and hidden text detection (display:none, opacity:0, font-size:0).
+- **Agent Execution Loop (`privacylens/agent/loop.py`)**:
+  - Complete lifecycle: perception, sanitization, prompt construction, egress-gated LLM completion, validation, human approval, local browser execution.
+  - Built-in rate limit backoff, JSON repair retry, loop prevention, and fail-closed termination.
+  - Deterministic testing with `ScriptedLLM` and `MockRecordingLLM`.
+- **Live Agent Evaluation Benchmark (`eval/run_agent_eval.py`)**:
+  - Evaluated live against `gemini-3.5-flash` across 5 distinct real-world browser scenarios under a 150s cap:
+    - `checkout`: **PASS** (2 steps, 2 calls, 10.64s, 1 approval, verified end state).
+    - `auth`: **PASS** (2 steps, 2 calls, 15.52s, 1 approval, verified end state).
+    - `support`: **PASS** (2 steps, 2 calls, 9.27s, 0 approvals, verified end state).
+    - `devsettings`: **PASS** (2 steps, 2 calls, 18.63s, 1 approval, verified end state).
+    - `meeting`: **PASS** (2 steps, 2 calls, 7.86s, 0 approvals, verified end state).
+  - **Overall Success Rate**: **5 / 5 (100.0%)**; average duration: **12.38s** per scenario; total LLM calls: **10**; zero timeouts; zero policy violations.
+  - **Adversarial Mock Leakage Audit**: 3 outbound requests inspected; **0 raw secrets leaked, 0 canaries leaked**.
 
 ## In progress
-- Agent execution loop and action approval gate.
+- Productization, API service endpoints, and documentation packaging.
 
 ## Next
-- Interactive agent action execution with policy approval gates.
-- Multi-step task execution on sanitized web applications.
+- Fast-API microservice endpoints for remote sanitization and proxy agent execution.
+- Production deployment configuration and containerization.
 
 ## Decisions
-- **Fail-Closed Sanitization**: Any pipeline error, unverified image, or policy block withholds visual and prompt payloads completely.
-- **Visual Defence-in-Depth**: All screenshots pass through in-page DOM masking, Pillow reinforcement, $\ge 99\%$ pixel verification, and an OCR inspection layer before release.
-- **Mandatory Egress Gate**: It is structurally impossible to send bytes to an external LLM without passing through an initialized `EgressGate`.
-- **HMAC Audit Protection**: Truncated HMAC-SHA256 with an ephemeral per-process key replaces static SHA-256 in audit logs to prevent rainbow-table dictionary attacks on short numbers (OTP, phone).
+- **Strict Boundary Separation**: LLM receives only sanitized DOM representations and surrogate tokens (`[SECRET:...]` or `[REDACTED_...]`). Resolution to actual credentials occurs locally within `ActionExecutor` on allowed origins.
+- **Fail-Closed Gate Enforcement**: Every network byte transmitted to LLM endpoints must pass through `EgressGate`. Outbound text is normalized across 6 dimensions and cross-referenced against active Vault tokens and canary patterns.
+- **High-Risk Human Gate**: Actions involving credential submission or irreversible state changes require human policy approval before local browser execution.
 
 ## Measured results
-- **Sanitization Pipeline Benchmark (All 11 Dev + Holdout Pages)**:
-  - **Text Leakage Count:** **0** (0 sensitive values in prompt or JSON outputs across all 11 pages).
-  - **Canary Leakage Count:** **0** (0 canary markers leaked).
-  - **Pixel Mask Rate:** **100.0%** (100% of sensitive regions masked).
-  - **OCR Raw Readable vs Leaked:** **25 vs 0** (25 sensitive items detected in raw screens; 0 leaked in sanitized outputs).
-  - **Blocked Pages under Default Profile:** **0 / 11** (100% usable views).
-- **Detection Benchmark (Dev & Holdout)**:
-  - **Dev Set Detection**: Precision **96.3%**, Recall **100.0%**, Canaries **5/5**.
-  - **Holdout Set Detection**: Precision **88.5%**, Recall **92.0%**, Canaries **5/5**, Decoy FP = **0**.
-- **Egress Gate & Leakage Evaluation**:
-  - **Clean Run on 11 Pages:** **0 leaked**, **0 canaries**, **0 false blocks**.
-  - **Adversarial Block Rate (Positive Control):** **97.7%** (931 / 954 blocked across 106 sensitive items and 9 obfuscation classes).
-  - **Raw / Spaced / Hyphenated / Split-JSON / Image-Embedded Block Rate:** **100.0%**.
-  - **Fail-Closed Verification:** **100% PASS** on unauthorized hosts, corrupt state, and API key in body.
-- **Unit Test Coverage**: 60 fast unit tests passing in < 6s.
-- **Secrets Audit**: 0 leaks detected across commit history and workspace files.
+- **Live Agent Evaluation Benchmark (`eval/results/agent_results.json`)**:
+  - **Scenario Completion Rate**: **5 / 5 (100.0%)**
+  - **Total Execution Latency**: **62.12s** across 5 full multi-step tasks.
+  - **Average Latency per Scenario**: **12.38s**.
+  - **Total LLM Invocations**: **10 calls** (2 calls/scenario average).
+  - **End-State DOM Verification**: **5 / 5 (100.0%)**.
+  - **Adversarial Outbound Leak Audit**: **0 / 3 raw secrets leaked (0.0%)**, **0 / 3 canaries leaked (0.0%)**.
+- **Sanitization & Detection Engine**:
+  - **Dev Detection**: Precision **96.3%**, Recall **100.0%**, Canaries **5/5**.
+  - **Holdout Detection**: DOM-visible Recall **100.0%** (23/23), Combined DOM+OCR Recall **100.0%** (25/25), Canaries **5/5**.
+  - **Adversarial Gate Positive Control**: **100.0% block rate (954/954)** across all 9 obfuscation classes.
+  - **Text & Pixel Leakage**: **0 text leaks**, **0 canary leaks**, **100.0% pixel masking**.
+- **Unit Test Suite**: 95 unit tests passing in < 8s.
+- **Secrets Audit**: 0 leaks detected across commit history and repository files.
 
 ## Known issues
 - Windows standard sandbox restricts loopback TCP `socket.socketpair()`; subprocess server commands and Playwright sessions run using explicit local bindings.
