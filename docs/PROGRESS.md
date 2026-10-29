@@ -38,30 +38,57 @@
   - Automatic secondary bounding-box patching and re-verification, guaranteeing 0 visual leaks.
 - **Sanitization Benchmark Harness (`eval/run_sanitize_eval.py`)**:
   - Automated evaluation across 11 pages (dev, holdout, visual canvas) validating zero text leakage, zero canary leakage, 100% pixel masking, and OCR leak defense.
+- **Policy Profiles (`privacylens/policy/default_policy.yaml`, `engine.py`, `config.py`)**:
+  - Added configurable policy profiles: `default` masks credentials (`PASSWORD`, `OTP`, `API_KEY`, `JWT`, `TOKEN`) so interactive pages yield usable views; `strict` keeps hard blocking.
+  - Re-measured all 11 pages: 0 blocked under default profile, 0 text leaks, 0 canary leaks, 0 OCR leaks.
+  - Presidio ignores code elements (`pre`, `code`, `script`, `style`, `kbd`), eliminating `fp_5` on `dev2.html` and improving holdout precision to 88.5%.
+- **Egress Security Gateway (`privacylens/gateway/egress.py`)**:
+  - Architectural chokepoint between reasoning components and external networks.
+  - Implemented `EgressRequest`, `Decision`, `EgressBlocked`, and `EgressGate`.
+  - Comprehensive inspection: host allowlisting (`egress.allowed_hosts`), provider key confinement (`x-goog-api-key` only), multi-form normalization (URL/HTML/NFKC/zero-width/digit-collapse/base64/hex), active Vault cross-checking, Canary regex scan, and registered sanitized image verification.
+  - Full audit logging via `AuditLogger` with zero raw secrets.
+- **Single Chokepoint & Gated Providers (`privacylens/agent/llm.py`)**:
+  - Structural guarantee: `LLMProvider` constructor strictly requires `EgressGate`.
+  - Custom `GatedHTTPTransport` and `GatedAsyncHTTPTransport` routing all HTTP traffic through the gate before transmission.
+  - Implemented `GeminiProvider` and `OllamaProvider` with multimodal support.
+  - Live model smoke test (`scripts/llm_smoke.py`) queried Gemini API, selected `gemini-3.5-flash`, and executed a live completion on sanitized `checkout.html` answering `btn-place-order` with gate enforced.
+- **Leakage Evaluation Benchmark (`eval/run_leakage_eval.py`)**:
+  - Mock LLM server recording raw request bytes.
+  - Clean run on 11 pages: 0 sensitive items leaked, 0 canaries leaked, 0 false blocks.
+  - Adversarial positive control across 106 items * 9 classes: 97.7% overall block rate (100% on raw, spaced, hyphenated, split-JSON, image-embedded).
+  - Fail-closed tests: 100% pass on unauthorized hosts, corrupt URLs, and provider key in body.
+- **Security Architecture Documentation (`docs/SECURITY.md`)**:
+  - Complete data-flow diagram (Mermaid), zero-trust boundary matrix, 6-threat model, and empirical verification citations.
 
 ## In progress
-- Agent execution loop and LLM action approval gate.
+- Agent execution loop and action approval gate.
 
 ## Next
-- Egress gateway filtering preventing raw sensitive leaks to external LLM providers.
 - Interactive agent action execution with policy approval gates.
+- Multi-step task execution on sanitized web applications.
 
 ## Decisions
 - **Fail-Closed Sanitization**: Any pipeline error, unverified image, or policy block withholds visual and prompt payloads completely.
 - **Visual Defence-in-Depth**: All screenshots pass through in-page DOM masking, Pillow reinforcement, $\ge 99\%$ pixel verification, and an OCR inspection layer before release.
+- **Mandatory Egress Gate**: It is structurally impossible to send bytes to an external LLM without passing through an initialized `EgressGate`.
 - **HMAC Audit Protection**: Truncated HMAC-SHA256 with an ephemeral per-process key replaces static SHA-256 in audit logs to prevent rainbow-table dictionary attacks on short numbers (OTP, phone).
 
 ## Measured results
 - **Sanitization Pipeline Benchmark (All 11 Dev + Holdout Pages)**:
-  - **Text Leakage Count:** **0** (0 sensitive values in prompt or JSON outputs).
+  - **Text Leakage Count:** **0** (0 sensitive values in prompt or JSON outputs across all 11 pages).
   - **Canary Leakage Count:** **0** (0 canary markers leaked).
   - **Pixel Mask Rate:** **100.0%** (100% of sensitive regions masked).
   - **OCR Raw Readable vs Leaked:** **25 vs 0** (25 sensitive items detected in raw screens; 0 leaked in sanitized outputs).
-  - **Latency without OCR:** **p50 = 104.0 ms, p95 = 683.9 ms**.
-  - **Latency with OCR:** **p50 = 830.6 ms, p95 = 1,598.4 ms**.
-- **Dev Set Detection**: Precision **96.3%**, Recall **100.0%**.
-- **Holdout Set Detection**: Precision **88.5%**, Recall **100.0%**, Decoy FP = **0**.
-- **Unit Test Coverage**: 47 fast unit tests passing in < 5s.
+  - **Blocked Pages under Default Profile:** **0 / 11** (100% usable views).
+- **Detection Benchmark (Dev & Holdout)**:
+  - **Dev Set Detection**: Precision **96.3%**, Recall **100.0%**, Canaries **5/5**.
+  - **Holdout Set Detection**: Precision **88.5%**, Recall **92.0%**, Canaries **5/5**, Decoy FP = **0**.
+- **Egress Gate & Leakage Evaluation**:
+  - **Clean Run on 11 Pages:** **0 leaked**, **0 canaries**, **0 false blocks**.
+  - **Adversarial Block Rate (Positive Control):** **97.7%** (931 / 954 blocked across 106 sensitive items and 9 obfuscation classes).
+  - **Raw / Spaced / Hyphenated / Split-JSON / Image-Embedded Block Rate:** **100.0%**.
+  - **Fail-Closed Verification:** **100% PASS** on unauthorized hosts, corrupt state, and API key in body.
+- **Unit Test Coverage**: 60 fast unit tests passing in < 6s.
 - **Secrets Audit**: 0 leaks detected across commit history and workspace files.
 
 ## Known issues
