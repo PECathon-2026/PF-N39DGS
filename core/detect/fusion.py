@@ -16,4 +16,3 @@ def fuse(findings: List[Finding]) -> List[Finding]:
         seen.add(key)
         out.append(f)
     return out
-PY

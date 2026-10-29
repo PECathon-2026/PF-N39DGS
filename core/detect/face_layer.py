@@ -23,4 +23,3 @@ def scan_image(image_path: str) -> List[Finding]:
     for (x, y, w, h) in faces:
         findings.append(Finding("FACE", {"x": int(x), "y": int(y), "w": int(w), "h": int(h)}, "face", 0.9))
     return findings
-PY

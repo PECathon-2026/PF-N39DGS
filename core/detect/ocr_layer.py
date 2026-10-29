@@ -25,4 +25,3 @@ def scan_image(image_path: str) -> List[Finding]:
     for f in findings:
         out.append(Finding(f.category, f.location, "ocr", f.confidence))
     return out
-PY
