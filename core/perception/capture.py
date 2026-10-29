@@ -19,7 +19,8 @@ def capture(page) -> Dict[str, Any]:
                 id: e.getAttribute('id'),
                 aria_label: e.getAttribute('aria-label'),
                 autocomplete: e.getAttribute('autocomplete'),
-                text: (e.innerText || '').slice(0,200)
+                value: e.value || e.getAttribute('value') || '',
+                text: (e.innerText || '').slice(0, 200)
             };
         })""",
     )
@@ -30,4 +31,3 @@ def capture(page) -> Dict[str, Any]:
         "elements": elements,
         "screenshot_b64": base64.b64encode(screenshot_bytes).decode("ascii"),
     }
-PY

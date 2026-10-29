@@ -56,7 +56,7 @@ w("scenario_3_support.html", f"""<!DOCTYPE html><html><body>
 # Scenario 4 video
 w("scenario_4_video.html", f"""<!DOCTYPE html><html><body>
 <h1>Video Call</h1>
-<img alt="face" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" />
+<img alt="face" src="face.jpg" width="200" height="200" />
 <p>Participant: {name}</p>
 <button id="join">Join</button>
 </body></html>""")
