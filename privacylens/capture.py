@@ -36,12 +36,21 @@ class ElementSnapshot:
     ancestor_ids: list[str] = field(default_factory=list)
     is_leaf: bool = False
 
+    @property
+    def is_interactive(self) -> bool:
+        """Whether this element accepts user interaction."""
+        return (
+            self.tag in ("input", "button", "select", "textarea", "a")
+            or self.input_type is not None
+        )
+
 
 @dataclass
 class PageSnapshot:
     """Complete DOM and visual snapshot of a browser page state."""
 
     url: str
+    title: str = ""
     elements: list[ElementSnapshot] = field(default_factory=list)
     screenshot_bytes: bytes = b""
     page_text: str = ""
@@ -296,6 +305,7 @@ async def capture_async(
     url: str,
     app_settings: Settings | None = None,
     page: Page | None = None,
+    capture_screenshot: bool = True,
 ) -> PageSnapshot:
     """Capture complete DOM element metadata and full-page screenshot asynchronously.
 
@@ -303,6 +313,7 @@ async def capture_async(
         url: URL of page to load and inspect.
         app_settings: Optional application settings. Defaults to global settings.
         page: Existing Playwright Page instance if reusing context.
+        capture_screenshot: Whether to capture full-page screenshot bytes.
 
     Returns:
         Populated PageSnapshot instance.
@@ -311,10 +322,12 @@ async def capture_async(
     channel = cfg.browser.browser_channel
 
     async def _capture_from_page(p: Page) -> PageSnapshot:
-        await p.goto(url, wait_until="load")
+        if p.url != url and url:
+            await p.goto(url, wait_until="load")
         raw_elements: list[dict[str, Any]] = await p.evaluate(_DOM_EXTRACT_JS)
-        screenshot = await p.screenshot(full_page=True)
+        screenshot = await p.screenshot(full_page=True) if capture_screenshot else b""
         page_text = await p.evaluate("() => document.body ? document.body.innerText : ''")
+        title = await p.title()
 
         elements: list[ElementSnapshot] = []
         for raw in raw_elements:
@@ -348,6 +361,7 @@ async def capture_async(
 
         return PageSnapshot(
             url=url,
+            title=title,
             elements=elements,
             screenshot_bytes=screenshot,
             page_text=page_text,

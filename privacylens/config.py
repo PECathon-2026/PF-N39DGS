@@ -118,3 +118,8 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings.load()
+
+
+def get_config() -> Settings:
+    """Return the global Settings instance."""
+    return settings

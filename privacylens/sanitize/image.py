@@ -250,10 +250,13 @@ async def sanitize_screenshot(
         If withheld_flag is True, png_bytes is None (fail closed).
     """
     if not findings:
-        # No sensitive findings: take clean screenshot
+        # No DOM findings: capture screenshot and run OCR defence layer
         try:
             shot = await page.screenshot(full_page=True)
-            return shot, False
+            from privacylens.detect.vision import ocr_redact_defence_in_depth
+
+            final_png, ocr_withheld = ocr_redact_defence_in_depth(shot)
+            return final_png, ocr_withheld
         except Exception:
             return None, True
 

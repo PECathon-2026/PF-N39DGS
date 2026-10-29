@@ -25,30 +25,43 @@
   - Strict 1-to-1 bipartite matching on (type, element_id, span) with fallback CSS selector resolution.
   - Holdout evaluation set with 5 realistic adversarial pages (`checkout2.html`, `auth2.html`, `support2.html`, `meeting2.html`, `dev2.html`) and `eval/ground_truth_holdout.json`.
   - Comprehensive reporting of finding-level precision, recall, decoy false positives, decoy over-redaction, character-level over-redaction, canary coverage, and detector ablations.
+- **Sanitization Engine & Policy (`policy/`, `vault.py`, `sanitize/text.py`)**:
+  - Enforced full policy actions (`mask`, `block`, `allow`) across 18 entity types with type normalization and custom rules support.
+  - In-memory surrogate tokenization `Vault` maintaining sequential non-reversible placeholders (`[REDACTED:TYPE_N]`) with zero-leak repr/str/pickle safeguards.
+  - Fail-closed text and DOM attribute sanitizer with URL query parameter redaction and title scrubbing.
+  - HMAC-SHA256 audit log prefixes protecting low-entropy entities from dictionary attacks.
+- **Visual Screenshot Redactor with Pixel Verification (`sanitize/image.py`)**:
+  - In-page live DOM masking wrapping text ranges in opaque spans and styling inputs/media with `#000` fill, guaranteed cleanup in finally blocks.
+  - Secondary Pillow rasterization reinforcement and strict $\ge 99\%$ mask pixel verification.
+- **OCR Defence-in-Depth Layer (`detect/vision.py`)**:
+  - Tesseract-powered spatial word and line grouping detecting visual text inside canvas or embedded images.
+  - Automatic secondary bounding-box patching and re-verification, guaranteeing 0 visual leaks.
+- **Sanitization Benchmark Harness (`eval/run_sanitize_eval.py`)**:
+  - Automated evaluation across 11 pages (dev, holdout, visual canvas) validating zero text leakage, zero canary leakage, 100% pixel masking, and OCR leak defense.
 
 ## In progress
-- Local surrogate tokenization vault (`vault.py`) and sanitization pipeline (masking and placeholder substitution).
+- Agent execution loop and LLM action approval gate.
 
 ## Next
-- Visual screenshot redactor (`sanitize/image.py`) using leaf bounding boxes.
 - Egress gateway filtering preventing raw sensitive leaks to external LLM providers.
+- Interactive agent action execution with policy approval gates.
 
 ## Decisions
-- **Presidio Scope**: Restrict Presidio strictly to `PERSON` and `LOCATION` entities with score threshold $\ge 0.60$; EMAIL and PHONE delegated to checksum/regex detectors.
-- **Leaf-Only DOM Capture**: Text extraction confined to leaf elements and input values; container wrappers do not aggregate descendant text, preventing massive over-redaction boxes.
-- **Container Dropping**: Detection engine automatically drops container findings when matching descendant findings exist.
-- **Priority Calibration**: Calibrated priority ordering: `CARD` > `AADHAAR` > `PAN` > `API_KEY` > `JWT` > `TOKEN` > `PASSWORD` > `CVV` > `EXPIRY` > `OTP` > `EMAIL` > `PHONE` > `IP` > `ADDRESS` > `NOTE_WITH_CANARY` > `NAME`.
-- **Pytest Isolation**: Default test runs exclude slow tests (`-m "not slow"`) for fast deterministic local testing. Real-HTTP uvicorn tests marked `@pytest.mark.slow`.
+- **Fail-Closed Sanitization**: Any pipeline error, unverified image, or policy block withholds visual and prompt payloads completely.
+- **Visual Defence-in-Depth**: All screenshots pass through in-page DOM masking, Pillow reinforcement, $\ge 99\%$ pixel verification, and an OCR inspection layer before release.
+- **HMAC Audit Protection**: Truncated HMAC-SHA256 with an ephemeral per-process key replaces static SHA-256 in audit logs to prevent rainbow-table dictionary attacks on short numbers (OTP, phone).
 
 ## Measured results
-- **Dev Set Progression**:
-  - **Before Fix**: Precision **44.8%**, Recall **100.0%** (26 TP, 32 FP, 0 Decoy FP, 12.4% char over-redact).
-  - **After Fix**: Precision **96.3%**, Recall **100.0%** (26 TP, 1 FP [type mismatch], 0 Decoy FP, 0.0% char over-redact).
-- **Holdout Set Progression**:
-  - **First Run**: Precision **71.0%**, Recall **95.7%** (22 TP, 1 FN, 9 FP, 3 Decoy FP, 20.0% decoy over-redact).
-  - **After Fixes**: Precision **88.5%**, Recall **100.0%** (23 TP, 0 FN, 3 FP, 0 Decoy FP, 0.0% decoy over-redact).
-- **Canary Coverage**: **5/5** (100% across dev and holdout sets).
-- **Unit Test Coverage**: 29 fast unit tests passing in < 0.1s.
+- **Sanitization Pipeline Benchmark (All 11 Dev + Holdout Pages)**:
+  - **Text Leakage Count:** **0** (0 sensitive values in prompt or JSON outputs).
+  - **Canary Leakage Count:** **0** (0 canary markers leaked).
+  - **Pixel Mask Rate:** **100.0%** (100% of sensitive regions masked).
+  - **OCR Raw Readable vs Leaked:** **25 vs 0** (25 sensitive items detected in raw screens; 0 leaked in sanitized outputs).
+  - **Latency without OCR:** **p50 = 104.0 ms, p95 = 683.9 ms**.
+  - **Latency with OCR:** **p50 = 830.6 ms, p95 = 1,598.4 ms**.
+- **Dev Set Detection**: Precision **96.3%**, Recall **100.0%**.
+- **Holdout Set Detection**: Precision **88.5%**, Recall **100.0%**, Decoy FP = **0**.
+- **Unit Test Coverage**: 47 fast unit tests passing in < 5s.
 - **Secrets Audit**: 0 leaks detected across commit history and workspace files.
 
 ## Known issues

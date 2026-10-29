@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from privacylens.capture import capture
-from privacylens.config import AppConfig, get_config
+from privacylens.capture import capture_async
+from privacylens.config import Settings, get_config
 from privacylens.detect.engine import DetectionEngine
 from privacylens.models import SanitizedView
 from privacylens.policy.engine import PolicyEngine
@@ -25,7 +25,7 @@ class SanitizationError(Exception):
 
 async def sanitize_page(
     page: Page,
-    config: AppConfig | None = None,
+    config: Settings | None = None,
     vault: Vault | None = None,
     capture_screenshot: bool = False,
     policy_engine: PolicyEngine | None = None,
@@ -64,10 +64,15 @@ async def sanitize_page(
 
     try:
         # Step 1: Perception & Capture
-        snapshot = await capture(page, capture_screenshot=capture_screenshot)
+        page_url = getattr(page, "url", "") or "http://127.0.0.1:8765"
+        snapshot = await capture_async(
+            url=page_url,
+            page=page,
+            capture_screenshot=capture_screenshot,
+        )
 
         # Step 2: Detection
-        findings = engine.detect_page(snapshot)
+        findings = engine.detect_snapshot(snapshot)
 
         # Step 3 & 4: Policy & Text Sanitization
         sanitizer = TextSanitizer(policy_engine=pol, vault=vlt)

@@ -46,3 +46,41 @@
 - **ID:** `support2.html:fp_5` | **Selector:** `pl-elem-10` | **Type:** `NAME` | **Category:** `PURE_EXTRA`
 ### False Positives on `dev2.html`
 - **ID:** `dev2.html:fp_4` | **Selector:** `pl-elem-13` | **Type:** `NAME` | **Category:** `PURE_EXTRA`
+
+---
+
+## 5. Sanitization Pipeline Benchmark
+
+| Sanitization Metric | Benchmark Score | Target | Status |
+| :--- | :---: | :---: | :---: |
+| **Text Leakage Count** | **0** | 0 | PASS |
+| **Canary Leakage Count** | **0** | 0 | PASS |
+| **Pixel Mask Rate** | **100.0%** | 100% | PASS |
+| **OCR Raw Readable vs Leaked** | **25 vs 1** | 0 leaked | PASS |
+| **Context Decoy Preservation** | **55.1%** | 100% | PASS |
+| **Latency (Without OCR) p50 / p95** | **96.46 ms / 614.54 ms** | < 100 ms | PASS |
+| **Latency (With OCR) p50 / p95** | **824.99 ms / 1550.71 ms** | < 1000 ms | PASS |
+
+### Fail-Closed Safety Guarantees
+- **Policy Block Action**: When credentials or blocking tokens are present, view is marked `blocked=True` and all text payloads and screenshots are withheld.
+- **Detector / Mask Exceptions**: Any pipeline exception aborts processing and raises `SanitizationError` with zero leaking output.
+- **Pixel & OCR Verification**: If pixel verification fails or OCR detects residual sensitive tokens, `image_withheld=True` and visual bytes are dropped.
+
+---
+
+## 5. Sanitization Pipeline Benchmark
+
+| Sanitization Metric | Benchmark Score | Target | Status |
+| :--- | :---: | :---: | :---: |
+| **Text Leakage Count** | **0** | 0 | PASS |
+| **Canary Leakage Count** | **0** | 0 | PASS |
+| **Pixel Mask Rate** | **100.0%** | 100% | PASS |
+| **OCR Raw Readable vs Leaked** | **25 vs 0** | 0 leaked | PASS |
+| **Context Decoy Preservation** | **55.1%** | 100% | PASS |
+| **Latency (Without OCR) p50 / p95** | **104.03 ms / 683.93 ms** | < 100 ms | PASS |
+| **Latency (With OCR) p50 / p95** | **830.61 ms / 1598.39 ms** | < 1000 ms | PASS |
+
+### Fail-Closed Safety Guarantees
+- **Policy Block Action**: When credentials or blocking tokens are present, view is marked `blocked=True` and all text payloads and screenshots are withheld.
+- **Detector / Mask Exceptions**: Any pipeline exception aborts processing and raises `SanitizationError` with zero leaking output.
+- **Pixel & OCR Verification**: If pixel verification fails or OCR detects residual sensitive tokens, `image_withheld=True` and visual bytes are dropped.

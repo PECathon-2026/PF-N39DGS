@@ -126,6 +126,7 @@ class SanitizedView(BaseModel):
     image_png: bytes | None = Field(
         default=None,
         description="Redacted PNG screenshot bytes if visual inspection is allowed",
+        exclude=True,
     )
     image_withheld: bool = Field(
         default=True,
