@@ -14,6 +14,8 @@ def test_verhoeff_valid_and_invalid() -> None:
     # Standard Verhoeff test cases
     assert verhoeff_valid("2363") is True
     assert verhoeff_valid("2364") is False
+    assert verhoeff_valid("123451") is True
+    assert verhoeff_valid("123452") is False
     assert verhoeff_valid("123456789012") is False
 
     # Aadhaar format with spaces/hyphens
@@ -37,6 +39,7 @@ def test_luhn_valid_and_invalid() -> None:
     # Known valid test numbers
     assert luhn_valid("49927398716") is True
     assert luhn_valid("79927398713") is True
+    assert luhn_valid("4111111111111111") is True
 
     # Generated valid card
     card = gen_card(seed=123)
