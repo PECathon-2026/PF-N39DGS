@@ -34,9 +34,7 @@ def capture(page) -> Dict[str, Any]:
     screenshot_bytes = page.screenshot(full_page=True)
     body_text = ""
     try:
-        body_el = page.query_selector("body")
-        if body_el:
-            body_text = body_el.inner_text()
+        body_text = page.eval_on_selector("body", "el => el.textContent || el.innerText || ''")
     except Exception:
         body_text = ""
 
