@@ -1,7 +1,9 @@
 from core.agent.client import (
     EgressBlockedError,
     build_user_prompt,
+    clear_outbound_transmission_records,
     escape_untrusted_content,
+    get_outbound_transmission_records,
     run_agent_loop,
     send_to_model,
 )
@@ -19,6 +21,8 @@ __all__ = [
     "build_user_prompt",
     "escape_untrusted_content",
     "EgressBlockedError",
+    "get_outbound_transmission_records",
+    "clear_outbound_transmission_records",
     "Action",
     "ValidationResult",
     "parse_action_proposal",
@@ -26,3 +30,4 @@ __all__ = [
     "ExecutionResult",
     "execute_action",
 ]
+

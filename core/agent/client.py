@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import sys
+import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import requests
 from dotenv import load_dotenv
@@ -22,6 +24,19 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+# In-memory fallback recorder storing only payload hashes and canary-hit booleans (zero raw content)
+_OUTBOUND_TRANSMISSION_RECORDS: List[Dict[str, Any]] = []
+
+
+def get_outbound_transmission_records() -> List[Dict[str, Any]]:
+    """Return recorded outbound transmission records containing hashes and canary-hit booleans only."""
+    return [dict(r) for r in _OUTBOUND_TRANSMISSION_RECORDS]
+
+
+def clear_outbound_transmission_records() -> None:
+    """Clear recorded transmission records."""
+    _OUTBOUND_TRANSMISSION_RECORDS.clear()
 
 SYSTEM_PROMPT = """You are PrivacyLens AI Browser Agent.
 You assist users with web tasks while strictly respecting local privacy and security boundaries.
@@ -140,6 +155,27 @@ def send_to_model(
             guard_result.reason or "Sensitive data detected",
             guard_result.category_counts,
         )
+
+    # Fallback recorder: stores payload hash and canary-hit boolean only (never raw content)
+    payload_combined = prompt + (base64.b64encode(image_bytes).decode("ascii") if image_bytes else "")
+    p_hash = hashlib.sha256(payload_combined.encode("utf-8")).hexdigest()
+    canary_detected = False
+    try:
+        from eval.canaries.registry import generate_registry
+
+        for c in generate_registry(42).all_values():
+            if c in prompt:
+                canary_detected = True
+                break
+    except Exception:
+        pass
+
+    _OUTBOUND_TRANSMISSION_RECORDS.append({
+        "timestamp": time.time(),
+        "payload_hash": p_hash,
+        "payload_length": len(payload_combined),
+        "canary_hit": canary_detected,
+    })
 
     # 2. REST transport to Gemini
     api_key = os.getenv("GEMINI_API_KEY", "")
