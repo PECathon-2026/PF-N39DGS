@@ -5,3 +5,4 @@ from core.detect.face_layer import scan_image as scan_faces
 from core.detect.fusion import fuse
 
 __all__ = ["Finding", "scan_text", "scan_dom", "scan_ocr", "scan_faces", "fuse"]
+

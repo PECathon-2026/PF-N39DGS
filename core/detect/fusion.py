@@ -34,7 +34,7 @@ def _intersection_ratio(b1: Dict[str, Any], b2: Dict[str, Any]) -> float:
     return intersection / min(a1, a2)
 
 
-def _union_box(b1: Dict[str, Any], b2: Dict[str, Any]) -> Dict[str, int]:
+def _union_box(b1: Dict[str, Any], b2: Dict[str, Any]) -> Dict[str, Any]:
     l1, r1 = b1["x"], b1["x"] + b1["w"]
     t1, bt1 = b1["y"], b1["y"] + b1["h"]
     l2, r2 = b2["x"], b2["x"] + b2["w"]
@@ -43,12 +43,16 @@ def _union_box(b1: Dict[str, Any], b2: Dict[str, Any]) -> Dict[str, int]:
     min_y = min(t1, t2)
     max_x = max(r1, r2)
     max_y = max(bt1, bt2)
-    return {
+    res: Dict[str, Any] = {
         "x": int(min_x),
         "y": int(min_y),
         "w": int(max_x - min_x),
         "h": int(max_y - min_y),
     }
+    el = b1.get("element") or b2.get("element")
+    if el:
+        res["element"] = el
+    return res
 
 
 def _merge_two_findings(f1: Finding, f2: Finding, new_loc: Any) -> Finding:
@@ -119,7 +123,13 @@ def _merge_elements(elem_findings: List[Finding]) -> List[Finding]:
         el_id = f.location.get("element")
         key = str(el_id)
         if key in merged_map:
-            merged_map[key] = _merge_two_findings(merged_map[key], f, f.location)
+            loc = dict(merged_map[key].location)
+            if "x" in f.location and "x" not in loc:
+                loc["x"] = f.location["x"]
+                loc["y"] = f.location["y"]
+                loc["w"] = f.location["w"]
+                loc["h"] = f.location["h"]
+            merged_map[key] = _merge_two_findings(merged_map[key], f, loc)
         else:
             merged_map[key] = f
     return list(merged_map.values())
@@ -127,7 +137,7 @@ def _merge_elements(elem_findings: List[Finding]) -> List[Finding]:
 
 def fuse(findings: List[Finding]) -> List[Finding]:
     """Fuse findings from multiple detection layers.
-    
+
     Resolves overlaps, unions bounding boxes/spans, preserves all detected entities
     to favour recall, and records all source layers for dashboard explainability.
     """
@@ -151,7 +161,7 @@ def fuse(findings: List[Finding]) -> List[Finding]:
     # Segregate by location type
     boxes: List[Finding] = [f for f in normalized if _is_box(f.location)]
     spans: List[Finding] = [f for f in normalized if _is_span(f.location)]
-    elems: List[Finding] = [f for f in normalized if _is_elem(f.location)]
+    elems: List[Finding] = [f for f in normalized if _is_elem(f.location) and not _is_box(f.location)]
     others: List[Finding] = [
         f for f in normalized
         if not (_is_box(f.location) or _is_span(f.location) or _is_elem(f.location))
