@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SVG Graphics & Query String Parameters</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
+        .box { max-width: 650px; margin: 0 auto; background: white; padding: 32px; border-radius: 8px; border: 1px solid #cbd5e1; }
+        svg { background: #0f172a; border-radius: 8px; margin: 16px 0; }
+        .query-box { padding: 12px; background: #f1f5f9; border-radius: 6px; font-family: monospace; font-size: 13px; word-break: break-all; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Visual Graphics & Query Link</h2>
+        
+        <!-- SVG with text elements -->
+        <h3>Electronic Virtual Card Render (SVG)</h3>
+        <svg width="500" height="150" viewBox="0 0 500 150">
+            <rect width="500" height="150" rx="8" fill="#1e293b"/>
+            <text x="30" y="45" fill="#38bdf8" font-size="14" font-family="sans-serif">Global Corporate Card</text>
+            <text id="svg-card-text" x="30" y="85" fill="#f8fafc" font-size="20" font-family="monospace">4716 6487 6962 0793</text>
+            <text id="svg-canary-text" x="30" y="125" fill="#94a3b8" font-size="12" font-family="monospace">Voucher: CANARY-svg-5512f</text>
+        </svg>
+
+        <div class="query-box">
+            <p><strong>Configured Link with API Key Parameter:</strong></p>
+            <a id="link-query" href="http://127.0.0.1:8765/holdout2/svg_querystring.html?session_key=sk-live-testkey990011223344556677">Session Credentials Link</a>
+        </div>
+        <p>Telemetry Ingress Node (Decoy): <span id="ip-decoy">198.51.100.42</span></p>
+    </div>
+</body>
+</html>

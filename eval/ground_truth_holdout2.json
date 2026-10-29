@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "canaries": [
+    { "id": "CANARY-inv-9921b", "page": "invoice.html", "target": "#invoice-canary" },
+    { "id": "CANARY-prof-8832c", "page": "profile_dynamic.html", "target": "#member-canary" },
+    { "id": "CANARY-edit-7712d", "page": "contenteditable_form.html", "target": "#editable-bio" },
+    { "id": "CANARY-ifr-6612e", "page": "shadow_iframe.html", "target": "#contact-iframe" },
+    { "id": "CANARY-svg-5512f", "page": "svg_querystring.html", "target": "#svg-canary-text" }
+  ],
+  "pages": {
+    "invoice.html": {
+      "url": "http://127.0.0.1:8765/holdout2/invoice.html",
+      "sensitive_items": [
+        { "value": "4716 4967 5247 2115", "type": "CARD", "selector": "#table-card-num" },
+        { "value": "42, M.G. Road, Near Shivaji Park, Pune, Maharashtra 411005", "type": "ADDRESS", "selector": "#invoice-address" },
+        { "value": "+91-98220-12345", "type": "PHONE", "selector": "#invoice-phone" },
+        { "value": "BKRPA4921K", "type": "PAN", "selector": "#invoice-pan" },
+        { "value": "CANARY-inv-9921b", "type": "NOTE_WITH_CANARY", "selector": "#invoice-canary" }
+      ],
+      "decoys": [
+        { "value": "27AAPFU0939F1ZV", "type": "GSTIN", "selector": "#gstin-decoy", "reason": "GSTIN commercial tax identifier" },
+        { "value": "SBIN0001234", "type": "IFSC", "selector": "#ifsc-decoy", "reason": "IFSC banking branch code" },
+        { "value": "INV-99201948", "type": "INVOICE_ID", "selector": "#invoice-id", "reason": "Invoice tracking reference" }
+      ]
+    },
+    "profile_dynamic.html": {
+      "url": "http://127.0.0.1:8765/holdout2/profile_dynamic.html",
+      "sensitive_items": [
+        { "value": "Vikram Singh", "type": "NAME", "selector": "#member-name" },
+        { "value": "vikram.singh@technovate-labs.co.in", "type": "EMAIL", "selector": "#email-split-container" },
+        { "value": "8787 3941 3826", "type": "AADHAAR", "selector": "#member-aadhaar" },
+        { "value": "CANARY-prof-8832c", "type": "NOTE_WITH_CANARY", "selector": "#member-canary" }
+      ],
+      "decoys": [
+        { "value": "982-100-4491", "type": "CASE_ID", "selector": "#case-decoy", "reason": "Customer service reference" }
+      ]
+    },
+    "contenteditable_form.html": {
+      "url": "http://127.0.0.1:8765/holdout2/contenteditable_form.html",
+      "sensitive_items": [
+        { "value": "Pooja Sharma", "type": "NAME", "selector": "#editable-bio" },
+        { "value": "CANARY-edit-7712d", "type": "NOTE_WITH_CANARY", "selector": "#editable-bio" },
+        { "value": "8730 6638 6510", "type": "AADHAAR", "selector": "#input-aadhaar" },
+        { "value": "ghp_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8", "type": "TOKEN", "selector": "#token-placeholder-only" }
+      ],
+      "decoys": []
+    },
+    "shadow_iframe.html": {
+      "url": "http://127.0.0.1:8765/holdout2/shadow_iframe.html",
+      "sensitive_items": [
+        { "value": "Meera Nair", "type": "NAME", "selector": "#contact-iframe" },
+        { "value": "meera.nair@coastal-ventures.in", "type": "EMAIL", "selector": "#contact-iframe" },
+        { "value": "+91-91234-56789", "type": "PHONE", "selector": "#contact-iframe" },
+        { "value": "CANARY-ifr-6612e", "type": "NOTE_WITH_CANARY", "selector": "#contact-iframe" },
+        { "value": "tok_sec_884920194821", "type": "TOKEN", "selector": "#shadow-host" }
+      ],
+      "decoys": []
+    },
+    "svg_querystring.html": {
+      "url": "http://127.0.0.1:8765/holdout2/svg_querystring.html?auth_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkhvbGRvdXQyIFVzZXIiLCJpYXQiOjE1MTYyMzkwMjJ9.X8bZ3m6P1z9L4q2W7v5Y8t1R6e3Q0a9B5c2D4f7G1h3",
+      "sensitive_items": [
+        { "value": "4716 6487 6962 0793", "type": "CARD", "selector": "#svg-card-text" },
+        { "value": "CANARY-svg-5512f", "type": "NOTE_WITH_CANARY", "selector": "#svg-canary-text" },
+        { "value": "sk-live-testkey990011223344556677", "type": "API_KEY", "selector": "#link-query" }
+      ],
+      "decoys": [
+        { "value": "198.51.100.42", "type": "IP_DECOY", "selector": "#ip-decoy", "reason": "Decoy IP address" }
+      ]
+    }
+  }
+}

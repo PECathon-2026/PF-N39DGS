@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Collaborative Rich Editor & Compliance Portal</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
+        .editor-card { max-width: 650px; margin: 0 auto; background: white; padding: 32px; border-radius: 8px; border: 1px solid #cbd5e1; }
+        .editable-area { min-height: 120px; border: 1px dashed #0284c7; padding: 14px; border-radius: 6px; background: #f0f9ff; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        input { width: 100%; padding: 10px; border: 1px solid #94a3b8; border-radius: 4px; box-sizing: border-box; }
+        label { font-weight: 600; display: block; margin-bottom: 4px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="editor-card">
+        <h2>Developer Notes & Token Registry</h2>
+        
+        <!-- contenteditable field with bio and canary -->
+        <label>Collaborative Workspace Scratchpad (ContentEditable):</label>
+        <div contenteditable="true" id="editable-bio" class="editable-area">
+            Team lead Pooja Sharma filed compliance audit notes under token CANARY-edit-7712d for the Bangalore regional office.
+        </div>
+
+        <form id="editor-form" onsubmit="event.preventDefault();">
+            <!-- Label via aria-labelledby -->
+            <div class="form-group">
+                <span id="aadhaar-label" style="font-weight:600; font-size:13px;">Official Aadhaar Identification:</span>
+                <input type="text" id="input-aadhaar" aria-labelledby="aadhaar-label" value="8730 6638 6510">
+            </div>
+
+            <!-- Placeholder-only field -->
+            <div class="form-group">
+                <input type="text" id="token-placeholder-only" placeholder="ghp_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8" title="GitHub Access Secret">
+            </div>
+
+            <button type="submit" id="btn-save" style="background:#0284c7; color:white; border:none; padding:10px 18px; border-radius:4px; cursor:pointer;">Save Records</button>
+        </form>
+    </div>
+</body>
+</html>

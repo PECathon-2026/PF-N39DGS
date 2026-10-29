@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dynamic Member Profile</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
+        .card { max-width: 600px; margin: 0 auto; background: white; padding: 32px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
+        .loading { color: #64748b; font-style: italic; }
+        .data-row { margin-bottom: 16px; font-size: 14px; }
+        .label { font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Personnel Registry Profile</h2>
+        <div id="dynamic-container">
+            <p class="loading">Loading member credentials from secure directory...</p>
+        </div>
+    </div>
+    <script>
+        // Content rendered dynamically by JS after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('dynamic-container');
+            container.innerHTML = `
+                <div class="data-row">
+                    <span class="label">Full Legal Name</span>
+                    <span id="member-name">Vikram Singh</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Work Email (Split Spans)</span>
+                    <span id="email-split-container"><span id="user-email-part1">vikram.singh</span><span id="user-email-part2">@technovate-labs.co.in</span></span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Case Reference (Decoy)</span>
+                    <span id="case-decoy">982-100-4491</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Statutory Identification</span>
+                    <p id="aadhaar-prose">Member holds valid Indian National UIDAI Aadhaar: <span id="member-aadhaar">8787 3941 3826</span>, filed under verification batch <span id="member-canary">CANARY-prof-8832c</span>.</p>
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>

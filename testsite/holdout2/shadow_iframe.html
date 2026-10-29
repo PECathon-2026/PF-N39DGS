@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Embedded Frames & Shadow Components</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; background: #f8fafc; color: #1e293b; }
+        .container { max-width: 700px; margin: 0 auto; background: white; padding: 32px; border-radius: 8px; border: 1px solid #cbd5e1; }
+        iframe { width: 100%; height: 160px; border: 1px solid #94a3b8; border-radius: 6px; margin: 16px 0; }
+        .shadow-box { margin-top: 24px; padding: 16px; background: #f1f5f9; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Federated Enterprise Directory</h2>
+        
+        <!-- Embedded Iframe with srcdoc -->
+        <h3>External Partner Contact (IFrame srcdoc)</h3>
+        <iframe id="contact-iframe" srcdoc="
+            <!DOCTYPE html>
+            <html>
+            <body style='font-family:sans-serif; margin:15px; color:#1e293b;'>
+                <p>Partner Representative: <strong>Meera Nair</strong></p>
+                <p>Direct Email: <span id='frame-email'>meera.nair@coastal-ventures.in</span></p>
+                <p>Direct Phone: <span id='frame-phone'>+91-91234-56789</span></p>
+                <p>Tracking Ref: <span id='frame-canary'>CANARY-ifr-6612e</span></p>
+            </body>
+            </html>
+        "></iframe>
+
+        <!-- Open Shadow DOM Host -->
+        <h3>Security Component (Open Shadow DOM)</h3>
+        <div class="shadow-box">
+            <div id="shadow-host"></div>
+        </div>
+    </div>
+    <script>
+        // Attach open shadow root to shadow-host
+        const host = document.getElementById('shadow-host');
+        const shadow = host.attachShadow({ mode: 'open' });
+        shadow.innerHTML = `
+            <style>
+                .inner-card { padding: 12px; background: #ffffff; border: 1px solid #0284c7; border-radius: 4px; font-family: monospace; font-size: 13px; }
+            </style>
+            <div class="inner-card">
+                <div>Shadow Context: Executive Infrastructure Secret</div>
+                <div>Access Token: <span id="shadow-token">tok_sec_884920194821</span></div>
+            </div>
+        `;
+    </script>
+</body>
+</html>
