@@ -210,3 +210,28 @@ Empirical evaluation on 5 completely unseen, complex edge-case pages (invoice.ht
 6. **Split Inline Span Aggregation**: Preserved cohesive text on inline wrapper elements (SPAN), avoiding fragmented token misses.
 7. **Street Suffix Recognition**: Enhanced Presidio PERSON filtering to recognize street/road suffixes (Road, Street, Avenue, Park), converting misclassified names into physical addresses.
 
+## 10. Privacy / Utility Baseline Comparison
+
+Empirical side-by-side comparison of **PrivacyLens Sanitized Execution** vs. an **Unsafe Raw Baseline** (sanitization bypassed, audit-only gate) across all 5 core browser task scenarios.
+
+| Metric | PrivacyLens Sanitized | Unsafe Raw Baseline | Impact |
+| :--- | :---: | :---: | :---: |
+| **Task Success Rate** | **100.0%** | **100.0%** | **Equivalent Utility (0% loss)** |
+| **Sensitive Values Leaked to LLM** | **0** | **26** | **100.0% Leak Reduction** |
+| **Canary Tokens Leaked** | **0** | **5** | **100.0% Protection** |
+| **Enforcing Egress Gate Mode** | `enforce` | `audit_only` | Fail-Closed Active |
+
+### Per-Scenario Privacy & Utility Breakdown
+
+| Scenario | Page | GT Sensitive Items | Sanitized Leaks | Raw Baseline Leaks | Sanitized Success | Raw Success |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| `checkout` | `checkout.html` | 6 | **0** | **6** | PASS | PASS |
+| `auth` | `login.html` | 3 | **0** | **3** | PASS | PASS |
+| `support` | `support.html` | 5 | **0** | **5** | PASS | PASS |
+| `devsettings` | `devsettings.html` | 6 | **0** | **6** | PASS | PASS |
+| `meeting` | `meeting.html` | 6 | **0** | **6** | PASS | PASS |
+
+### Baseline Safety Safeguards
+- **CLI Mandatory Guardrail**: The raw baseline requires explicit `--unsafe-baseline` parameter.
+- **Strict Origin Restriction**: Any non-localhost domain causes immediate process termination with `SecurityOriginError`.
+- **Audit-Only Quantifier**: In baseline mode, `EgressGate` runs in audit-only mode to record and prove the exact sensitive items that would have left to upstream providers.

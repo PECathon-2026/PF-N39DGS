@@ -93,8 +93,17 @@
   - Diagnosed root causes and applied generic engine improvements (SVG textContent, frame/shadow ancestry propagation, word-bounded Verhoeff digits, placeholder scanning, link query string scanning, inline span aggregation, street address recognition).
   - Re-measured after fixes: Precision **86.96%**, Recall **95.24%** (20/21 TP, 1 miss), Canaries **4/5**, Sanitization leaks: 1 (only untyped non-dictionary name), Zero canary leaks, Zero OCR leaks. Dev and Holdout 1 benchmarks verified with zero regressions.
 
+- **Privacy/Utility Baseline Comparison Benchmark (`eval/run_baseline_eval.py`)**:
+  - Implemented empirical comparative evaluation of PrivacyLens sanitized execution vs unsafe raw baseline across all 5 core scenarios (`checkout`, `auth`, `support`, `devsettings`, `meeting`).
+  - Strict guardrails: `--unsafe-baseline` CLI flag mandatory, origin validation strictly restricts execution to localhost (`SecurityOriginError`), loud security warnings emitted, and `EgressGate` operates in audit-only mode to quantify would-be leaks without halting.
+  - Measured:
+    - **Task Success Rate**: **100.0% (5/5)** under PrivacyLens vs **100.0% (5/5)** under raw baseline (**0% utility loss**).
+    - **Sensitive Values Leaked to LLM**: **0** under PrivacyLens vs **26** under raw baseline (**100.0% leak reduction**).
+    - **Canary Tokens Leaked**: **0** under PrivacyLens vs **5** under raw baseline (**100.0% protection**).
+  - Safety unit tests in `tests/test_baseline_safety.py` verify that default mode strictly stays enforce and normal runs cannot enable unsafe baseline.
+
 ## In progress
-- Part 3: Privacy/Utility Baseline comparison (`eval/run_baseline_eval.py`).
+- Production deployment configuration, service packaging, and documentation.
 
 ## Next
 - Fast-API microservice endpoints for remote sanitization and proxy agent execution.

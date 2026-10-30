@@ -24,7 +24,7 @@ import re
 import unicodedata
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from privacylens.config import EgressConfig, get_config
 from privacylens.detect.text_api import detect_text
@@ -237,6 +237,7 @@ class EgressGate:
         config: EgressConfig | None = None,
         audit_logger: AuditLogger | None = None,
         vault: Vault | None = None,
+        mode: Literal["enforce", "audit_only"] = "enforce",
     ) -> None:
         """Initialize egress gate.
 
@@ -244,6 +245,7 @@ class EgressGate:
             config: Egress configuration settings (defaults to config.yaml).
             audit_logger: Audit logger for tamper-evident logging.
             vault: Active Vault instance for secret cross-checking.
+            mode: Operating mode ('enforce' blocks on violation, 'audit_only' logs only).
         """
         if config is not None:
             self.config = config
@@ -255,6 +257,7 @@ class EgressGate:
 
         self.audit_logger = audit_logger or AuditLogger()
         self.vault = vault
+        self.mode = mode
         self._registered_image_hashes: set[str] = set()
 
     def register_sanitized_image(self, image_bytes: bytes) -> str:
@@ -318,7 +321,27 @@ class EgressGate:
         """
         decision = self.inspect(request)
         if not decision.allowed:
+            if self.mode == "audit_only":
+                logger.warning(
+                    "AUDIT-ONLY GATE: Egress violation detected but not blocked: %s (%s)",
+                    decision.reason,
+                    decision.violations,
+                )
+                return
             raise EgressBlocked(decision.reason, decision.violations)
+
+    def verify_prompt(self, prompt: str) -> None:
+        """Inspect prompt string as an outbound EgressRequest.
+
+        Args:
+            prompt: Text prompt string to verify against egress policy.
+        """
+        req = EgressRequest(
+            url="http://127.0.0.1:8765/models/gemini:generateContent",
+            method="POST",
+            body=prompt.encode("utf-8"),
+        )
+        self.enforce(req)
 
     def _do_inspect(self, request: EgressRequest) -> Decision:
         """Internal inspection implementation."""
