@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrivacyLens</title>
+  <style>
+    :root {
+      --color-bg:      #0d0d0d;
+      --color-surface: #161616;
+      --color-border:  #2a2a2a;
+      --color-text:    #e8e8e8;
+      --color-muted:   #888;
+      --color-safe:    #30d158;
+      --color-danger:  #ff3b30;
+      --color-warn:    #ff9f0a;
+      --color-accent:  #0a84ff;
+      --color-badge-bg:#1c2a3a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 480px;
+      min-height: 580px;
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-surface);
+    }
+    .header-icon { font-size: 20px; }
+    .header-title { font-weight: 700; font-size: 15px; }
+    .header-tagline { font-size: 11px; color: var(--color-muted); margin-left: auto; }
+
+    /* Task input */
+    .task-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .task-label { font-size: 11px; color: var(--color-muted); margin-bottom: 6px; }
+    .task-input {
+      width: 100%;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      color: var(--color-text);
+      padding: 8px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+    .task-input:focus { border-color: var(--color-accent); }
+    .task-row { display: flex; gap: 8px; margin-top: 8px; }
+    .btn {
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .btn-primary { background: var(--color-accent); color: #fff; flex: 1; }
+    .btn-ghost   { background: var(--color-surface); color: var(--color-text);
+                   border: 1px solid var(--color-border); }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Status chip */
+    .status-bar {
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .chip {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+    }
+    .chip-idle  { background: #2a2a2a; color: var(--color-muted); }
+    .chip-run   { background: #1c2a3a; color: var(--color-accent); }
+    .chip-done  { background: #0f2a1a; color: var(--color-safe); }
+    .chip-block { background: #2a0f0f; color: var(--color-danger); }
+    .chip-warn  { background: #2a1a0f; color: var(--color-warn); }
+    .status-step { font-size: 11px; color: var(--color-muted); }
+
+    /* Before / After panes */
+    .panes { display: flex; border-bottom: 1px solid var(--color-border); }
+    .pane { flex: 1; padding: 10px 12px; min-height: 180px; max-height: 220px; overflow-y: auto; }
+    .pane:first-child { border-right: 1px solid var(--color-border); }
+    .pane-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .pane-title.local  { color: var(--color-danger); }
+    .pane-title.model  { color: var(--color-safe); }
+    .pane-empty { color: var(--color-muted); font-size: 12px; }
+
+    /* Screenshot images */
+    .screenshot-img {
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid var(--color-border);
+      display: block;
+    }
+    .screenshot-label {
+      font-size: 10px;
+      color: var(--color-muted);
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    /* Redaction badges */
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 4px;
+      margin: 2px;
+      letter-spacing: 0.03em;
+    }
+    .badge-CARD { background:#1c2230; color:#5e9cff; }
+    .badge-PASSWORD { background:#2a1a1a; color:#ff6b6b; }
+    .badge-EMAIL { background:#1a2a1a; color:#4cd964; }
+    .badge-PHONE { background:#2a2a1a; color:#ffcc00; }
+    .badge-OTP { background:#2a1a2a; color:#bf5af2; }
+    .badge-AADHAAR { background:#2a1a1a; color:#ff9500; }
+    .badge-PAN { background:#1a1a2a; color:#32ade6; }
+    .badge-API_KEY { background:#2a2a1a; color:#ffd60a; }
+    .badge-FACE { background:#2a1a2a; color:#ff375f; }
+    .badge-IP { background:#1a2a2a; color:#30b0c7; }
+    .badge-DEFAULT { background:#2a2a2a; color:#aaa; }
+
+    .redaction-list { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 4px; }
+
+    /* Approval section */
+    .approval-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--color-border);
+      background: color-mix(in srgb, var(--color-warn) 8%, transparent);
+    }
+    .approval-title { font-weight: 700; color: var(--color-warn); margin-bottom: 8px; }
+    .approval-row { display: flex; gap: 6px; margin-bottom: 4px; font-size: 12px; }
+    .approval-label { color: var(--color-muted); width: 90px; flex-shrink: 0; }
+    .approval-value { color: var(--color-text); }
+    .approval-btns { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-approve { background: var(--color-safe); color: #000; }
+    .btn-reject  { background: var(--color-danger); color: #fff; }
+
+    /* Blocked banner */
+    .blocked-banner {
+      padding: 10px 16px;
+      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+      color: var(--color-danger);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Misc */
+    .hidden { display: none !important; }
+    .text-muted { color: var(--color-muted); }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      padding: 8px 16px 4px;
+    }
+    .server-hint {
+      padding: 10px 16px;
+      font-size: 11px;
+      color: var(--color-muted);
+      text-align: center;
+    }
+    .server-hint a { color: var(--color-accent); text-decoration: none; }
+
+    /* Tab strip for before/after in panes */
+    .pane-tab-strip { display: flex; gap: 4px; margin-bottom: 6px; }
+    .pane-tab {
+      font-size: 10px; font-weight: 600; padding: 2px 8px;
+      border-radius: 4px; cursor: pointer; border: 1px solid var(--color-border);
+      background: transparent; color: var(--color-muted);
+    }
+    .pane-tab.active { background: var(--color-border); color: var(--color-text); }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <span class="header-icon">🛡️</span>
+  <span class="header-title">PrivacyLens</span>
+  <span class="header-tagline">Local Privacy Gateway · PS-004</span>
+</div>
+
+<!-- Task Input -->
+<div class="task-section">
+  <div class="task-label">Task instruction for the AI agent:</div>
+  <input type="text" id="task-input" class="task-input"
+         placeholder="e.g. Add item to cart and check out"
+         autocomplete="off" />
+  <div class="task-row">
+    <button class="btn btn-primary" id="btn-run">▶ Run on This Page</button>
+    <button class="btn btn-ghost" id="btn-dashboard">📊 Dashboard</button>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span class="chip chip-idle" id="status-chip">● IDLE</span>
+  <span class="status-step" id="status-step"></span>
+</div>
+
+<!-- Blocked Banner -->
+<div class="blocked-banner hidden" id="blocked-banner">
+  🚫 Egress Blocked — sensitive data intercepted before reaching AI model.
+  <span id="blocked-detail"></span>
+</div>
+
+<!-- Before / After Panes -->
+<div class="panes" id="panes-section">
+
+  <!-- Left: RAW (local only) -->
+  <div class="pane">
+    <div class="pane-title local">🔒 RAW · Local Only</div>
+    <div class="pane-tab-strip">
+      <button class="pane-tab active" id="tab-raw-threats">Threats</button>
+      <button class="pane-tab" id="tab-raw-screenshot">Screenshot</button>
+    </div>
+    <!-- Threats tab -->
+    <div id="raw-threats-pane">
+      <span class="pane-empty" id="raw-threats-empty">No task running.</span>
+      <div class="redaction-list" id="redaction-badges"></div>
+    </div>
+    <!-- Raw screenshot tab -->
+    <div id="raw-screenshot-pane" class="hidden">
+      <span class="pane-empty" id="raw-img-empty">No screenshot yet.</span>
+      <img id="raw-img" class="screenshot-img hidden" alt="Raw page (local)" />
+      <div class="screenshot-label">⚠️ Sensitive data visible — local only</div>
+    </div>
+  </div>
+
+  <!-- Right: SANITISED (sent to model) -->
+  <div class="pane">
+    <div class="pane-title model">📤 Sanitised · Sent to Model</div>
+    <div class="pane-tab-strip">
+      <button class="pane-tab active" id="tab-san-text">Prompt</button>
+      <button class="pane-tab" id="tab-san-img">Masked</button>
+    </div>
+    <!-- Sanitised text tab -->
+    <div id="san-text-pane">
+      <span class="pane-empty" id="san-text-empty">No payload yet.</span>
+      <div id="san-text-content" class="hidden"></div>
+    </div>
+    <!-- Masked screenshot tab -->
+    <div id="san-img-pane" class="hidden">
+      <span class="pane-empty" id="san-img-empty">No screenshot yet.</span>
+      <img id="masked-img" class="screenshot-img hidden" alt="Masked screenshot" />
+      <div class="screenshot-label">🛡️ Blackout applied — re-OCR verified</div>
+    </div>
+  </div>
+
+</div><!-- /panes -->
+
+<!-- Approval Section -->
+<div class="approval-section hidden" id="approval-section">
+  <div class="approval-title">⚠️ Human Approval Required</div>
+  <div class="approval-row">
+    <span class="approval-label">Action:</span>
+    <span class="approval-value" id="ap-action-type">—</span>
+  </div>
+  <div class="approval-row">
+    <span class="approval-label">Target:</span>
+    <span class="approval-value" id="ap-target">—</span>
+  </div>
+  <div class="approval-row">
+    <span class="approval-label">Reasoning:</span>
+    <span class="approval-value" id="ap-thought">—</span>
+  </div>
+  <div class="approval-btns">
+    <button class="btn btn-approve" id="btn-approve">✓ Approve</button>
+    <button class="btn btn-reject"  id="btn-reject">✕ Reject</button>
+  </div>
+</div>
+
+<!-- Server hint -->
+<div class="server-hint">
+  Backend: <a href="http://localhost:8000" target="_blank">localhost:8000</a>
+  &nbsp;·&nbsp;
+  <a href="http://localhost:8000" target="_blank">Open Full Dashboard ↗</a>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
+

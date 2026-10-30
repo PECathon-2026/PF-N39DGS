@@ -35,38 +35,85 @@ def scan_dom(snapshot: dict) -> List[Finding]:
         name = (el.get("name") or "").lower()
         aria = (el.get("aria_label") or "").lower()
         eid = (el.get("id") or "").lower()
+        placeholder = (el.get("placeholder") or "").lower()
+        cls = (el.get("class") or "").lower()
+        lbl = (el.get("label") or "").lower()
+        txt = (el.get("text") or "").lower()
         val = el.get("value") or ""
-        hint = " ".join([name, aria, eid])
+        val_str = str(val).strip()
 
-        if tag == "input" and typ == "password":
-            findings.append(Finding("PASSWORD", el_loc, "dom", 0.99))
+        # Aggregate context clues from all relevant DOM attributes
+        hint = " ".join([name, aria, eid, placeholder, cls, lbl, txt])
+
+        # -------------------------------------------------------------
+        # PASSWORD DETECTION (both masked with dots and exposed text)
+        # -------------------------------------------------------------
+        is_password_field = (
+            typ == "password"
+            or ac in ("current-password", "new-password")
+            or any(k in hint for k in ("password", "passwd", "pwd", "passcode", "passphrase"))
+        )
+
+        if is_password_field:
+            # Mark the DOM element bounding box so the screenshot is masked
+            conf = 0.99 if typ == "password" else 0.95
+            findings.append(Finding("PASSWORD", el_loc, "dom", conf))
+
+            # If a password value is present (even if exposed as type="text" via show-password),
+            # register it as a value_text finding so the sanitizer redacts it across all text
+            if val_str and len(val_str) >= 1:
+                findings.append(Finding("PASSWORD", {"value_text": val_str}, "dom", 0.99))
+
+            # If innerText contains exposed password characters
+            if txt and any(k in hint for k in ("password", "passwd", "pwd")) and len(txt) >= 4:
+                # If text looks like a value rather than a label
+                if not any(txt.strip() == w for w in ("password", "show password", "hide password", "enter password")):
+                    findings.append(Finding("PASSWORD", {"value_text": str(el.get("text")).strip()}, "dom", 0.90))
+
+        # -------------------------------------------------------------
+        # SENSITIVE AUTOCOMPLETE (Cards & OTPs)
+        # -------------------------------------------------------------
         elif ac in SENSITIVE_AUTOCOMPLETE:
             cat = "CARD" if "cc" in ac else ("OTP" if ac == "one-time-code" else "PASSWORD")
             findings.append(Finding(cat, el_loc, "dom", 0.95))
-        elif any(k in hint for k in ("password", "passwd", "pwd")):
-            findings.append(Finding("PASSWORD", el_loc, "dom", 0.85))
-        elif any(k in hint for k in ("otp", "one-time", "verification")):
+            if val_str and len(val_str) >= 1:
+                findings.append(Finding(cat, {"value_text": val_str}, "dom", 0.95))
+
+        # -------------------------------------------------------------
+        # OTHER SENSITIVE FIELDS BY HINTS
+        # -------------------------------------------------------------
+        elif any(k in hint for k in ("otp", "one-time", "verification", "auth-code")):
             findings.append(Finding("OTP", el_loc, "dom", 0.85))
-        elif any(k in hint for k in ("card", "cc-number", "credit")):
+            if val_str and len(val_str) >= 1:
+                findings.append(Finding("OTP", {"value_text": val_str}, "dom", 0.90))
+        elif any(k in hint for k in ("card", "cc-number", "credit", "debit", "cardnumber", "cvv", "cvc")):
             findings.append(Finding("CARD", el_loc, "dom", 0.85))
+            if val_str and len(val_str) >= 1:
+                findings.append(Finding("CARD", {"value_text": val_str}, "dom", 0.95))
         elif any(k in hint for k in ("aadhaar", "uidai")):
             findings.append(Finding("AADHAAR", el_loc, "dom", 0.85))
-        elif any(k in hint for k in ("pan", "pan-card")):
+            if val_str and len(val_str) >= 1:
+                findings.append(Finding("AADHAAR", {"value_text": val_str}, "dom", 0.95))
+        elif any(k in hint for k in ("pan", "pan-card", "pancard")):
             findings.append(Finding("PAN", el_loc, "dom", 0.85))
-        elif any(k in hint for k in ("api_key", "api-key", "token", "secret")):
+            if val_str and len(val_str) >= 1:
+                findings.append(Finding("PAN", {"value_text": val_str}, "dom", 0.95))
+        elif any(k in hint for k in ("api_key", "api-key", "apikey", "secret_key", "token", "secret")):
             findings.append(Finding("API_KEY", el_loc, "dom", 0.85))
-        elif any(k in hint for k in ("ip", "ip_addr", "ip-address")):
+            if val_str and len(val_str) >= 1:
+                findings.append(Finding("API_KEY", {"value_text": val_str}, "dom", 0.95))
+        elif any(k in hint for k in ("ip", "ip_addr", "ip-address", "ipaddress")):
             findings.append(Finding("IP", el_loc, "dom", 0.85))
         elif any(k in hint for k in ("email", "mail")):
             findings.append(Finding("EMAIL", el_loc, "dom", 0.85))
         elif any(k in hint for k in ("phone", "mobile", "tel")):
             findings.append(Finding("PHONE", el_loc, "dom", 0.85))
-        elif any(k in hint for k in ("address", "addr")):
+        elif any(k in hint for k in ("address", "addr", "street")):
             findings.append(Finding("ADDRESS", el_loc, "dom", 0.85))
-        elif any(k in hint for k in ("name", "fullname")):
+        elif any(k in hint for k in ("name", "fullname", "full-name")):
             findings.append(Finding("NAME", el_loc, "dom", 0.85))
 
-        # Also inspect input values directly if present
+        # Also inspect input values directly if present with regex scanners
         if val:
             for vf in scan_text(str(val)):
                 findings.append(Finding(vf.category, el_loc, "dom", vf.confidence))

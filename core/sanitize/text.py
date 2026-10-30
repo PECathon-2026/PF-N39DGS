@@ -115,6 +115,18 @@ def sanitize_dom(snapshot: Dict[str, Any], findings: Optional[List[Finding]] = N
 
     sanitized = copy.deepcopy(snapshot)
 
+    # Pre-pass: collect value_text findings from DOM password / credential detection.
+    # These are exact string values (e.g. typed passwords or exposed secrets) that must be
+    # redacted wherever they appear in the snapshot text / element values.
+    value_text_redactions: List[tuple] = []  # (raw_value_str, category)
+    if findings:
+        for f in findings:
+            loc = f.location
+            if isinstance(loc, dict) and "value_text" in loc:
+                raw_val = str(loc["value_text"]).strip()
+                if raw_val and len(raw_val) >= 2:
+                    value_text_redactions.append((raw_val, f.category.upper()))
+
     # Element-level findings map: el_id -> category
     element_flags: Dict[str, str] = {}
     if findings:
@@ -134,8 +146,13 @@ def sanitize_dom(snapshot: Dict[str, Any], findings: Optional[List[Finding]] = N
             cat = element_flags[el_id]
             if val is not None and str(val).strip():
                 el["value"] = f"[REDACTED:{cat}]"
-            elif txt is not None and str(txt).strip():
-                el["text"] = f"[REDACTED:{cat}]"
+            if txt is not None and str(txt).strip():
+                # Redact text content if it looks like a value rather than an immutable static UI label
+                if str(txt).strip().lower() not in (
+                    "password", "email", "username", "card", "submit", "login",
+                    "show password", "hide password", "enter password"
+                ):
+                    el["text"] = f"[REDACTED:{cat}]"
 
         # 2. Sanitize any remaining sensitive text or values inside the element
         if el.get("value"):
@@ -148,6 +165,18 @@ def sanitize_dom(snapshot: Dict[str, Any], findings: Optional[List[Finding]] = N
     # Sanitize general page text if present
     if "text" in sanitized and sanitized["text"]:
         sanitized["text"] = sanitize_text(sanitized["text"])
+
+    # Apply value_text redactions: replace exact typed-value strings across
+    # all element value/text fields and the full page text.
+    for raw_val, cat in value_text_redactions:
+        placeholder = f"[REDACTED:{cat}]"
+        for el in sanitized.get("elements", []):
+            if el.get("value") and raw_val in str(el["value"]):
+                el["value"] = str(el["value"]).replace(raw_val, placeholder)
+            if el.get("text") and raw_val in str(el["text"]):
+                el["text"] = str(el["text"]).replace(raw_val, placeholder)
+        if sanitized.get("text") and raw_val in sanitized["text"]:
+            sanitized["text"] = sanitized["text"].replace(raw_val, placeholder)
 
     return sanitized
 

@@ -851,3 +851,19 @@ hr.divider {
 
 .text-safe { color: var(--color-safe) !important; }
 .text-danger { color: var(--color-danger) !important; }
+
+/* ── P2: Raw screenshot notice ──────────────────────────────────────────── */
+.raw-screenshot-notice {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

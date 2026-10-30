@@ -27,7 +27,7 @@ def test_full_dashboard_flow():
         if s.get("pending_action"):
             print(f"[{i*0.5}s] Pending action found: {s['pending_action']}")
             pending_found = True
-            
+
             # Check preview during validation
             prev = client.get("/preview").json()
             assert prev.get("sanitized_text") is not None
@@ -40,12 +40,17 @@ def test_full_dashboard_flow():
 
     assert pending_found, "Expected pending action to be triggered"
 
-    # Wait for completion
+    # Wait for completion — auto-approve any additional approval gates that arise
+    # Multi-step tasks (e.g. add-to-cart then checkout) may require multiple approvals
     completed = False
     for i in range(120):
         time.sleep(0.5)
         s = client.get("/status").json()
         stage = s.get("stage")
+        # Auto-approve any further pending actions
+        if s.get("pending_action"):
+            print(f"[{i*0.5}s after first approval] Another pending action — auto-approving: {s['pending_action']}")
+            client.post("/approve")
         if i % 5 == 0:
             print(f"[{i*0.5}s after approval] stage={stage}, pending={s.get('pending_action') is not None}, error={s.get('error')}")
         if stage in ("DONE", "ERROR", "BLOCKED"):

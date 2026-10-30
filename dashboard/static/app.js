@@ -225,6 +225,7 @@
     // Fetch preview data to populate panes
     if (!isIdle || !noTask) {
       fetchPreview();
+      fetchRawPreview();  // populate "Raw View" tab in left pane
     }
   }
 
@@ -299,6 +300,31 @@
     }
   }
 
+  /**
+   * Fetch the raw (pre-redaction) screenshot from /raw_preview and populate
+   * the "Raw View" tab in the left pane.  This image shows sensitive data
+   * and must NEVER be sent to any external service — it stays local.
+   */
+  async function fetchRawPreview() {
+    try {
+      const resp = await fetch('/raw_preview');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const rawImgBox = $('#raw-img-box');
+      if (rawImgBox && data.raw_screenshot_b64) {
+        rawImgBox.innerHTML = `
+          <div class="img-badge-overlay" style="background:var(--color-danger-bg,#ff3b3020);color:var(--color-danger,#ff3b30);">
+            ⚠️ RAW SENSITIVE DATA — Local Only · Never Sent to Model
+          </div>
+          <img src="data:image/png;base64,${data.raw_screenshot_b64}"
+               class="masked-image" alt="Raw page screenshot (local only)" />
+        `;
+      }
+    } catch (_) {
+      // Non-fatal — raw preview is best-effort
+    }
+  }
+
   function initPresets() {
     const btns = $$('.preset-btn');
     btns.forEach(btn => {
@@ -316,6 +342,7 @@
   }
 
   function initViewToggle() {
+    // Right pane: Prompt text ↔ Visual blackout
     const btnText = $('#btn-toggle-text');
     const btnImg = $('#btn-toggle-img');
     const sentBody = el.paneSentBody();
@@ -333,6 +360,29 @@
         btnText.classList.remove('active');
         if (sentBody) sentBody.classList.add('hidden');
         if (imgBody) imgBody.classList.remove('hidden');
+      });
+    }
+
+    // Left pane: Threats list ↔ Raw screenshot
+    const btnLocalThreats = $('#btn-toggle-local-threats');
+    const btnLocalRaw    = $('#btn-toggle-local-raw');
+    const localBody    = $('#pane-local-body');
+    const localRawBody = $('#pane-local-raw-body');
+
+    if (btnLocalThreats && btnLocalRaw) {
+      btnLocalThreats.addEventListener('click', () => {
+        btnLocalThreats.classList.add('active');
+        btnLocalRaw.classList.remove('active');
+        if (localBody)    localBody.classList.remove('hidden');
+        if (localRawBody) localRawBody.classList.add('hidden');
+      });
+      btnLocalRaw.addEventListener('click', () => {
+        btnLocalRaw.classList.add('active');
+        btnLocalThreats.classList.remove('active');
+        if (localBody)    localBody.classList.add('hidden');
+        if (localRawBody) localRawBody.classList.remove('hidden');
+        // Eagerly load raw preview when user switches to this tab
+        fetchRawPreview();
       });
     }
   }
