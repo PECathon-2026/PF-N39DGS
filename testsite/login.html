@@ -79,6 +79,12 @@
             e.preventDefault();
             validateAndSubmitLogin();
         });
+
+        if (window.location.search.includes('empty=1')) {
+            document.getElementById('email-input').value = '';
+            document.getElementById('password-input').value = '';
+            document.getElementById('otp-input').value = '';
+        }
     </script>
 </body>
 </html>

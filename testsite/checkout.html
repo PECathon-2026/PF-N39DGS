@@ -113,6 +113,9 @@
         });
 
         if (window.location.search.includes('empty=1')) {
+            document.getElementById('customer-name').value = '';
+            document.getElementById('shipping-address').value = '';
+            document.getElementById('phone-number').value = '';
             document.getElementById('card-number').value = '';
             document.getElementById('card-cvv').value = '';
             document.getElementById('card-expiry').value = '';

@@ -33,6 +33,46 @@ _HIGH_ENTROPY_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 
+
+def _is_identifier_not_key(val: str) -> bool:
+    """Return True if string is an identifier rather than a high-entropy secret."""
+    # Strip optional trailing numeric index like _2, _3
+    clean_val = re.sub(r"_\d+$", "", val)
+    # Check if snake_case with common identifier words
+    if re.match(r"^[a-zA-Z]+(_[a-zA-Z]+)+$", clean_val):
+        parts = [p.lower() for p in clean_val.split("_")]
+        common_terms = {
+            "account",
+            "user",
+            "password",
+            "token",
+            "secret",
+            "key",
+            "auth",
+            "credential",
+            "field",
+            "name",
+            "value",
+            "id",
+            "master",
+            "session",
+            "login",
+            "code",
+            "input",
+            "param",
+            "header",
+            "gemini",
+            "api",
+            "env",
+            "test",
+        }
+        if any(p in common_terms for p in parts) and all(p.isalpha() for p in parts):
+            return True
+    # Pure camelCase identifier with common terms and no digits
+    if re.match(r"^[a-z]+([A-Z][a-z]+)+$", val) and not any(c.isdigit() for c in val):
+        return True
+    return False
+
 _IPV4_RE = re.compile(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b")
 _IPV6_RE = re.compile(r"\b(?:[A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}\b")
 
@@ -43,6 +83,13 @@ _PHONE_INTL_RE = re.compile(
 )
 
 # Context-dependent patterns
+_NAME_CONTEXT_PREFIX_RE = re.compile(
+    r"\b(?:representative|contact|attendee|signed by|from|partner|"
+    r"officer|lead|speaker|customer|member)\s*[:\-]\s*",
+    re.IGNORECASE,
+)
+_CAPITALIZED_NAME_RE = re.compile(r"^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}$")
+
 _OTP_RE = re.compile(r"\b\d{4,8}\b")
 _OTP_CONTEXT_RE = re.compile(
     r"(?:otp|one[- ]?time|verification[- ]?code|auth[- ]?code|"
@@ -151,6 +198,27 @@ class PatternDetector(Detector):
     ) -> list[Finding]:
         """Detect sensitive patterns within a specific text segment."""
         findings: list[Finding] = []
+        clean_text = text.strip()
+        hint_str = context_hint or ""
+
+        # Name detection via contextual role prefix
+        if (
+            _CAPITALIZED_NAME_RE.match(clean_text)
+            and len(clean_text) >= 5
+            and (_NAME_CONTEXT_PREFIX_RE.search(hint_str) or _NAME_CONTEXT_PREFIX_RE.search(text))
+        ):
+            findings.append(
+                Finding(
+                    type="NAME",
+                    start=text.find(clean_text),
+                    end=text.find(clean_text) + len(clean_text),
+                    bbox=bbox,
+                    confidence=0.92,
+                    source="pattern",
+                    rule_id="pattern_name_context",
+                    element_id=element_id,
+                )
+            )
 
         # 1. API_KEY & SECRETS
         for m in _SK_KEY_RE.finditer(text):
@@ -250,6 +318,8 @@ class PatternDetector(Detector):
                 if close_bracket != -1 and close_bracket - m.end() < 2:
                     continue
             val = m.group(1)
+            if _is_identifier_not_key(val):
+                continue
             findings.append(
                 Finding(
                     type="API_KEY",

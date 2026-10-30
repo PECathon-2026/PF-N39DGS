@@ -64,8 +64,16 @@
     <script>
         document.getElementById('btn-escalate').addEventListener('click', function(e) {
             e.preventDefault();
+            const reply = (document.getElementById('chat-reply-input').value || '').trim();
+            if (window.location.search.includes('empty=1') && !reply) {
+                return;
+            }
             document.getElementById('escalated').style.display = 'block';
         });
+
+        if (window.location.search.includes('empty=1')) {
+            document.getElementById('chat-reply-input').value = '';
+        }
     </script>
 </body>
 </html>

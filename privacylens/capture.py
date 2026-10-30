@@ -78,6 +78,12 @@ _DOM_EXTRACT_JS = """
         }
         const parentLabel = el.closest('label');
         if (parentLabel && parentLabel.innerText) return parentLabel.innerText.trim();
+        if (el.parentElement) {
+            const pText = (el.parentElement.innerText || '').trim();
+            if (pText && pText.length < 120 && pText !== (el.innerText || '').trim()) {
+                return pText;
+            }
+        }
         return null;
     }
 

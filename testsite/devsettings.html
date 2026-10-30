@@ -110,6 +110,10 @@
             e.preventDefault();
             document.getElementById('rotated').style.display = 'block';
         });
+        document.getElementById('btn-delete-key').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.body.innerHTML = '<h1 id="error-deleted" style="color:red;">DELETED ALL KEYS - FATAL ERROR</h1>';
+        });
     </script>
 </body>
 </html>

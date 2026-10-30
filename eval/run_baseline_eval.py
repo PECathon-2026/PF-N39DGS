@@ -165,26 +165,40 @@ async def run_scenario_sanitized(
 
             # Model completion
             resp_str = recording_llm.complete(prompt)
-            decision = json.loads(resp_str)
-            act = decision.get("action", {})
+            from privacylens.agent.actions import FinishAction, parse_decision
 
-            if act.get("action") == "finish":
-                task_success = act.get("status") == "success"
+            decision = parse_decision(resp_str)
+            act = decision.action
+
+            if isinstance(act, FinishAction):
+                task_success = (act.status == "success")
                 break
 
             # Execute action
-            from privacylens.agent.actions import ClickAction
-
-            action_obj = ClickAction(element_id=act.get("element_id", ""))
-            await executor.execute(action_obj, page)
+            await executor.execute(act, page)
             await page.wait_for_timeout(300)
 
-        # Check expected end element
+        # Check expected end element and field verification
         exp_elem = scenario.get("expected_element")
+        elem_ok = True
         if exp_elem:
             loc = page.locator(exp_elem).first
-            if await loc.count() > 0 and await loc.is_visible():
-                task_success = True
+            elem_ok = (await loc.count() > 0 and await loc.is_visible())
+
+        fields_ok = True
+        exp_fields = scenario.get("expected_fields", {})
+        if exp_fields:
+            for selector, exp_val in exp_fields.items():
+                try:
+                    cur_val = await page.locator(selector).input_value()
+                    norm_cur = str(cur_val).strip().replace("-", "").replace(" ", "").lower()
+                    norm_exp = str(exp_val).strip().replace("-", "").replace(" ", "").lower()
+                    if norm_cur != norm_exp:
+                        fields_ok = False
+                except Exception:
+                    fields_ok = False
+
+        task_success = task_success and elem_ok and fields_ok
 
     finally:
         await browser.close()
@@ -266,26 +280,40 @@ async def run_scenario_raw_baseline(
 
             # Model completion
             resp_str = recording_llm.complete(raw_prompt)
-            decision = json.loads(resp_str)
-            act = decision.get("action", {})
+            from privacylens.agent.actions import FinishAction, parse_decision
 
-            if act.get("action") == "finish":
-                task_success = act.get("status") == "success"
+            decision = parse_decision(resp_str)
+            act = decision.action
+
+            if isinstance(act, FinishAction):
+                task_success = (act.status == "success")
                 break
 
             # Execute action
-            from privacylens.agent.actions import ClickAction
-
-            action_obj = ClickAction(element_id=act.get("element_id", ""))
-            await executor.execute(action_obj, page)
+            await executor.execute(act, page)
             await page.wait_for_timeout(300)
 
-        # Check expected end element
+        # Check expected end element and field verification
         exp_elem = scenario.get("expected_element")
+        elem_ok = True
         if exp_elem:
             loc = page.locator(exp_elem).first
-            if await loc.count() > 0 and await loc.is_visible():
-                task_success = True
+            elem_ok = (await loc.count() > 0 and await loc.is_visible())
+
+        fields_ok = True
+        exp_fields = scenario.get("expected_fields", {})
+        if exp_fields:
+            for selector, exp_val in exp_fields.items():
+                try:
+                    cur_val = await page.locator(selector).input_value()
+                    norm_cur = str(cur_val).strip().replace("-", "").replace(" ", "").lower()
+                    norm_exp = str(exp_val).strip().replace("-", "").replace(" ", "").lower()
+                    if norm_cur != norm_exp:
+                        fields_ok = False
+                except Exception:
+                    fields_ok = False
+
+        task_success = task_success and elem_ok and fields_ok
 
     finally:
         await browser.close()

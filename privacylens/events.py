@@ -33,6 +33,7 @@ EventKind = Literal[
     "executed",
     "blocked",
     "injection_flagged",
+    "llm_fallback",
     "finished",
     "error",
 ]

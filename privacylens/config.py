@@ -49,8 +49,22 @@ class LLMConfig(BaseModel):
     """Language model provider settings."""
 
     provider: str = "gemini"
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3.5-flash"
     temperature: float = 0.0
+    api_key_envs: list[str] = Field(
+        default_factory=lambda: ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3"]
+    )
+    fallback_models: list[str] = Field(
+        default_factory=lambda: [
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        ]
+    )
+    max_calls_per_run: int = 14
+    rpm_limit: int = 4
+    budget_file: Path = Path("logs/llm_budget.json")
 
 
 class AuditConfig(BaseModel):

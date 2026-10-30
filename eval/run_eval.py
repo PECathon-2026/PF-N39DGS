@@ -200,7 +200,16 @@ def evaluate_page(
     page_canary = next((c for c in canaries if c["page"] == page_name), None)
     if page_canary:
         canary_target = _resolve_target_id(page_canary["target"], snapshot.elements)
-        canary_findings = [f for f in findings if f.element_id and f.element_id == canary_target]
+        canary_findings = []
+        for f in findings:
+            if not f.element_id:
+                continue
+            if f.element_id == canary_target:
+                canary_findings.append(f)
+            else:
+                elem = next((e for e in snapshot.elements if e.element_id == f.element_id), None)
+                if elem and canary_target in (elem.ancestor_ids or []):
+                    canary_findings.append(f)
         if canary_findings:
             metrics.canary_detected = True
 
@@ -616,7 +625,9 @@ def main() -> None:
     import sys
 
     gt_path = "eval/ground_truth.json"
-    if "--holdout" in sys.argv:
+    if "--holdout2" in sys.argv:
+        gt_path = "eval/ground_truth_holdout2.json"
+    elif "--holdout" in sys.argv:
         gt_path = "eval/ground_truth_holdout.json"
     elif len(sys.argv) > 1 and sys.argv[1].endswith(".json"):
         gt_path = sys.argv[1]

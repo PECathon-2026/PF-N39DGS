@@ -229,3 +229,4 @@ logs/
 __pycache__/
 *.log
 .ruff_cache/
+.pl_token

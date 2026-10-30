@@ -245,9 +245,10 @@ class PresidioDetector(Detector):
         findings: list[Finding] = []
         for res in results:
             span_val = text[res.start : res.end].strip()
-            # Ignore all-caps UI words or short abbreviations or known UI non-name categories
-            words = [w.strip(".,;:()[]{}'\"") for w in span_val.upper().split()]
-            if any(w in _UI_NON_NAME_WORDS for w in words):
+            # Ignore all-caps UI words, identifiers, or known UI non-name categories
+            raw_subwords = re.split(r"[\s_]+", span_val.upper())
+            subwords = [w.strip(".,;:()[]{}'\"") for w in raw_subwords if w]
+            if any(w in _UI_NON_NAME_WORDS for w in subwords):
                 continue
             if span_val.isupper() and len(span_val) <= 4:
                 continue
