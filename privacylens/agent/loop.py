@@ -194,6 +194,7 @@ async def run_task(
     secrets: SecretStore | None = None,
     bus: EventBus | None = None,
     page: Any = None,
+    driver: Any = None,
     max_steps: int | None = None,
 ) -> RunResult:
     """Execute multi-step browser task under strict sanitization and safety enforcement.
@@ -207,6 +208,7 @@ async def run_task(
         secrets: Synthetic user SecretStore.
         bus: Event streaming bus.
         page: Active Playwright Page instance (or None to launch ephemeral).
+        driver: Optional BrowserDriver instance (PlaywrightDriver or ExtensionDriver).
         max_steps: Maximum reasoning steps before stopping.
 
     Returns:
@@ -229,37 +231,61 @@ async def run_task(
     recent_actions: list[str] = []
     llm_calls = 0
 
-    # Initialize browser page if not passed
+    # Initialize browser driver/page
     browser_context_owned = False
     browser_instance = None
     playwright_instance = None
+    active_driver = driver
 
-    if page is None:
-        from playwright.async_api import async_playwright
+    if active_driver is None:
+        from privacylens.agent.driver import PlaywrightDriver
 
-        playwright_instance = await async_playwright().start()
-        channel = cfg.browser.browser_channel
-        browser_instance = await playwright_instance.chromium.launch(
-            headless=True,
-            channel=channel if channel != "chromium" else None,
+        if page is None:
+            from playwright.async_api import async_playwright
+
+            playwright_instance = await async_playwright().start()
+            channel = cfg.browser.browser_channel
+            browser_instance = await playwright_instance.chromium.launch(
+                headless=True,
+                channel=channel if channel != "chromium" else None,
+            )
+            context = await browser_instance.new_context()
+            page = await context.new_page()
+            browser_context_owned = True
+
+        executor = ActionExecutor(config=cfg.secrets, vault=None, secret_store=sec_store)
+        active_driver = PlaywrightDriver(
+            page=page,
+            executor=executor,
+            secret_store=sec_store,
         )
-        context = await browser_instance.new_context()
-        page = await context.new_page()
-        browser_context_owned = True
+    else:
+        executor = getattr(active_driver, "executor", None) or ActionExecutor(
+            config=cfg.secrets, vault=None, secret_store=sec_store
+        )
 
     try:
         # Initial navigation to start_url
         logger.info("Agent navigating to start URL: %s", start_url)
-        await page.goto(start_url, timeout=15000, wait_until="domcontentloaded")
-        executor = ActionExecutor(config=cfg.secrets, vault=None, secret_store=sec_store)
+        if hasattr(active_driver, "page") and active_driver.page is not None:
+            await active_driver.page.goto(start_url, timeout=15000, wait_until="domcontentloaded")
+        else:
+            await active_driver.execute({"action": "navigate", "url": start_url})
 
         for step in range(1, limit_steps + 1):
             logger.info("--- Starting agent step %d / %d ---", step, limit_steps)
 
             # 1. Perception & Local Sanitization
             vault = Vault()
-            view = await sanitize_page(page, vault=vault, capture_screenshot=False)
+            target_obj = (
+                active_driver.page
+                if hasattr(active_driver, "page") and active_driver.page is not None
+                else active_driver
+            )
+            view = await sanitize_page(target_obj, vault=vault, capture_screenshot=False)
             executor.vault = vault
+            if hasattr(active_driver, "vault"):
+                active_driver.vault = vault
             if hasattr(llm, "gate") and getattr(llm, "gate", None) is not None:
                 llm.gate.register_vault(vault)
             view = defend_view(view, bus=event_bus, step=step)
@@ -470,7 +496,11 @@ async def run_task(
                     summary=action_obj.summary,
                 )
 
-            exec_ok = await executor.execute(action_obj, page, view=view)
+            if hasattr(active_driver, "page") and active_driver.page is not None:
+                exec_ok = await executor.execute(action_obj, active_driver.page, view=view)
+            else:
+                exec_res = await active_driver.execute(action_obj)
+                exec_ok = exec_res.success
             event_bus.emit(
                 "executed",
                 step=step,

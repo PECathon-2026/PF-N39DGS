@@ -64,12 +64,15 @@ async def sanitize_page(
 
     try:
         # Step 1: Perception & Capture
-        page_url = getattr(page, "url", "") or "http://127.0.0.1:8765"
-        snapshot = await capture_async(
-            url=page_url,
-            page=page,
-            capture_screenshot=capture_screenshot,
-        )
+        if hasattr(page, "capture"):
+            snapshot = await page.capture(config=_, want_screenshot=capture_screenshot)
+        else:
+            page_url = getattr(page, "url", "") or "http://127.0.0.1:8765"
+            snapshot = await capture_async(
+                url=page_url,
+                page=page,
+                capture_screenshot=capture_screenshot,
+            )
 
         # Step 2: Detection
         findings = engine.detect_snapshot(snapshot)
