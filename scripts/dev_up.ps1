@@ -32,10 +32,11 @@ Write-Host "[OK] Pairing token copied to clipboard." -ForegroundColor Green
 Write-Host "     Token file path: $tokenPath" -ForegroundColor Gray
 Write-Host "     (Raw token is never printed to console)" -ForegroundColor Gray
 
-# 4. Open Developer Settings Page
+# 4. Print URLs and Dev Info
+$uiUrl = "http://127.0.0.1:8000/ui/"
 $devUrl = "http://127.0.0.1:8765/devsettings.html?empty=1"
-Write-Host "Opening dev settings page: $devUrl" -ForegroundColor Cyan
-Start-Process $devUrl
+Write-Host "Side Panel UI: $uiUrl" -ForegroundColor Cyan
+Write-Host "Testsite Dev Settings: $devUrl" -ForegroundColor Cyan
 
 Write-Host "`nDev stack running!" -ForegroundColor Green
 Write-Host "API Process ID: $($apiProcess.Id)" -ForegroundColor Gray
