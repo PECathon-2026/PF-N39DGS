@@ -1,0 +1,44 @@
+sites:
+  - name: SauceDemo Login
+    url: https://www.saucedemo.com/
+    field_selectors:
+      - "#user-name"
+      - "#password"
+  - name: The Internet Herokuapp Login
+    url: https://the-internet.herokuapp.com/login
+    field_selectors:
+      - "#username"
+      - "#password"
+  - name: The Internet Forgot Password
+    url: https://the-internet.herokuapp.com/forgot_password
+    field_selectors:
+      - "#email"
+  - name: DemoQA Text Box
+    url: https://demoqa.com/text-box
+    field_selectors:
+      - "#userName"
+      - "#userEmail"
+      - "#currentAddress"
+  - name: HttpBin Form Post
+    url: https://httpbin.org/forms/post
+    field_selectors:
+      - "input[name='custname']"
+      - "input[name='custtel']"
+      - "input[name='custemail']"
+  - name: Local SwiftGear Checkout (Control)
+    url: http://127.0.0.1:8765/checkout.html?empty=1
+    field_selectors:
+      - "#customer-name"
+      - "#shipping-address"
+      - "#phone-number"
+      - "#card-number"
+  - name: Local DevSettings (Control)
+    url: http://127.0.0.1:8765/devsettings.html
+    field_selectors:
+      - "#auth-jwt"
+      - "#session-token"
+  - name: Local Auth Portal (Control)
+    url: http://127.0.0.1:8765/login.html?empty=1
+    field_selectors:
+      - "#email-input"
+      - "#password-input"

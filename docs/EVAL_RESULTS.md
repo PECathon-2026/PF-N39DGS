@@ -48,3 +48,16 @@
 - **ID:** `shadow_iframe.html:item_0` | **Selector:** `#contact-iframe` | **Type:** `NAME`
 ### False Positives on `svg_querystring.html`
 - **ID:** `svg_querystring.html:decoy_fp_0` | **Selector:** `ip-decoy` | **Type:** `IP` | **Category:** `DECOY_FP` (Decoy IP address)
+
+## Real-site compatibility
+
+| Site | Loaded | Fields Found | Canaries Hidden/Total | Notes |
+| :--- | :---: | :---: | :---: | :--- |
+| SauceDemo Login | Yes | 2 | 2/2 | All canaries fully redacted |
+| The Internet Herokuapp Login | Yes | 2 | 2/2 | All canaries fully redacted |
+| The Internet Forgot Password | Yes | 1 | 1/1 | All canaries fully redacted |
+| DemoQA Text Box | Yes | 3 | 3/3 | All canaries fully redacted |
+| HttpBin Form Post | Yes | 3 | 3/3 | All canaries fully redacted |
+| Local SwiftGear Checkout (Control) | Yes | 4 | 4/4 | All canaries fully redacted |
+| Local DevSettings (Control) | Yes | 2 | 2/2 | All canaries fully redacted |
+| Local Auth Portal (Control) | Yes | 2 | 2/2 | All canaries fully redacted |

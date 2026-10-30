@@ -364,4 +364,17 @@
         return false;
     });
 
+    // In-page window message listener for testing and companion bridge
+    window.addEventListener('message', (event) => {
+        if (!event.data || event.data.type !== 'PRIVACYLENS_COMMAND') return;
+        const cmd = event.data.command || {};
+        if (cmd.kind === 'set_shield') {
+            if (cmd.enabled) {
+                applyShield(cmd.redactions || []);
+            } else {
+                removeShield();
+            }
+        }
+    });
+
 })();
