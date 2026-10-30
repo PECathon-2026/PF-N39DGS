@@ -27,6 +27,10 @@ class RateLimitedError(RuntimeError):
     """Raised when all configured API keys and fallback models are exhausted."""
 
 
+class SecurityError(RuntimeError):
+    """Raised when an attempt to record raw sensitive data or canaries is detected."""
+
+
 class GatedHTTPTransport(httpx.HTTPTransport):
     """Custom HTTP transport routing every outbound request through an EgressGate."""
 
@@ -468,3 +472,107 @@ def get_llm_provider(
     else:
         logger.warning("Unknown provider '%s', defaulting to GeminiProvider", provider_name)
         return GeminiProvider(gate=gate, api_key=cfg.gemini_api_key, model=cfg.llm.model)
+
+
+class RecordingLLM(LLMProvider):
+    """Wraps an LLMProvider to record interactions into an audit cassette."""
+
+    def __init__(
+        self,
+        provider: LLMProvider,
+        scenario: str,
+        cassette_dir: Path = Path("eval/cassettes"),
+        gate: EgressGate | None = None,
+    ) -> None:
+        self.provider = provider
+        self.scenario = scenario
+        self.cassette_dir = cassette_dir
+        self.gate = gate or getattr(provider, "gate", None) or EgressGate(mode="enforce")
+        self.model = f"recording:{getattr(provider, 'model', 'unknown')}"
+        self.recorded_steps: list[dict[str, Any]] = []
+
+    def complete(self, prompt: str, image: bytes | None = None) -> str:
+        """Execute completion, scan for sensitive data, and append to cassette."""
+        import hashlib
+
+        # Security scan before writing to cassette
+        self._scan_for_sensitive(prompt)
+
+        response = self.provider.complete(prompt, image)
+        self._scan_for_sensitive(response)
+
+        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        step_record = {
+            "step": len(self.recorded_steps) + 1,
+            "prompt_hash": prompt_hash,
+            "response": response,
+        }
+        self.recorded_steps.append(step_record)
+        self._save_cassette()
+        return response
+
+    def _scan_for_sensitive(self, text: str) -> None:
+        """Scan content; refuse to record if raw credentials or canaries are found."""
+        if "CANARY-" in text:
+            raise SecurityError(
+                "Refusing to record cassette: canary token detected in payload"
+            )
+        if self.gate:
+            try:
+                self.gate.verify_prompt(text)
+            except Exception as exc:
+                raise SecurityError(
+                    f"Refusing to record cassette: sensitive pattern detected ({exc})"
+                ) from exc
+
+    def _save_cassette(self) -> None:
+        """Persist recorded steps to disk."""
+        self.cassette_dir.mkdir(parents=True, exist_ok=True)
+        cassette_file = self.cassette_dir / f"{self.scenario}.json"
+        data = {
+            "scenario": self.scenario,
+            "model": getattr(self.provider, "model", "unknown"),
+            "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "steps": self.recorded_steps,
+        }
+        cassette_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+class ReplayLLM:
+    """Replays recorded LLM completions sequentially from an audit cassette."""
+
+    def __init__(
+        self,
+        scenario: str,
+        cassette_dir: Path = Path("eval/cassettes"),
+    ) -> None:
+        self.scenario = scenario
+        self.cassette_dir = cassette_dir
+        cassette_file = self.cassette_dir / f"{self.scenario}.json"
+        if not cassette_file.exists():
+            raise FileNotFoundError(
+                f"Cassette for scenario '{scenario}' not found at {cassette_file}"
+            )
+
+        data = json.loads(cassette_file.read_text(encoding="utf-8"))
+        self.source_model = data.get("model", "unknown")
+        self.model = f"replay:{scenario} ({self.source_model})"
+        self.steps = data.get("steps", [])
+        self._step_idx = 0
+
+    def complete(self, prompt: str, image: bytes | None = None) -> str:
+        """Return next recorded completion in sequence."""
+        if self._step_idx >= len(self.steps):
+            return json.dumps(
+                {
+                    "reason": "Replay finished",
+                    "action": {
+                        "action": "finish",
+                        "status": "failure",
+                        "summary": "End of recorded cassette",
+                    },
+                }
+            )
+        step_data = self.steps[self._step_idx]
+        self._step_idx += 1
+        return str(step_data["response"])

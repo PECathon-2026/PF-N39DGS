@@ -17,6 +17,7 @@ from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from privacylens import __version__
@@ -107,6 +108,7 @@ class AgentRunRequest(BaseModel):
     task: str
     start_url: str
     approval: Literal["ui", "auto", "deny"] = "ui"
+    model: str = "gemini"
 
 
 class ApproveRequest(BaseModel):
@@ -289,7 +291,7 @@ def sanitize_screenshot_endpoint(
 
 
 @app.post("/v1/agent/runs")
-def start_agent_run(
+async def start_agent_run(
     req: AgentRunRequest,
     _: str = Depends(verify_pairing_token),
 ) -> dict[str, str]:
@@ -301,11 +303,47 @@ def start_agent_run(
     driver = ExtensionDriver(session_id=run_id, bus=bus)
     ACTIVE_EXTENSION_DRIVERS[run_id] = driver
 
+    # Configure LLM provider or replay
+    model_choice = getattr(req, "model", "gemini")
+    llm_instance = None
+    if model_choice.startswith("replay:"):
+        from privacylens.agent.llm import ReplayLLM
+
+        scenario_name = model_choice.split(":", 1)[1]
+        try:
+            llm_instance = ReplayLLM(scenario=scenario_name)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        # Default gated LLM provider
+        from privacylens.agent.llm import get_llm_provider
+
+        gate = EgressGate(mode="enforce")
+        try:
+            llm_instance = get_llm_provider(gate=gate)
+        except Exception:
+            # Fallback to scripted finish if provider setup fails (e.g. no key)
+            from privacylens.agent.loop import ScriptedLLM
+
+            llm_instance = ScriptedLLM(
+                [
+                    {
+                        "reason": "Default finish",
+                        "action": {
+                            "action": "finish",
+                            "status": "success",
+                            "summary": "Completed",
+                        },
+                    }
+                ]
+            )
+
     # Launch task in background
     run_task_coro = run_task(
         task=req.task,
         start_url=req.start_url,
         bus=bus,
+        llm=llm_instance,
         driver=driver,
         max_steps=14,
     )
@@ -321,7 +359,7 @@ def start_agent_run(
         "status": "running",
     }
 
-    return {"run_id": run_id}
+    return {"run_id": run_id, "status": "running"}
 
 
 @app.get("/v1/agent/runs/{run_id}/events")
@@ -633,3 +671,9 @@ def put_site_policy(
 
     SITE_POLICY_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return {"status": "ok", "origin": req.origin, "type": req.type, "action": req.action}
+
+
+# Mount extension sidepanel UI
+_sidepanel_dir = Path("extension/sidepanel")
+if _sidepanel_dir.exists():
+    app.mount("/ui", StaticFiles(directory=str(_sidepanel_dir), html=True), name="sidepanel")

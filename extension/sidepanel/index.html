@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PrivacyLens</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <!-- Header -->
+  <div class="pl-header">
+    <div class="pl-logo-group">
+      <svg class="pl-shield-icon" viewBox="0 0 24 24">
+        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+      </svg>
+      <div class="pl-title">PrivacyLens</div>
+    </div>
+    <div id="pl-conn-status" class="pl-status-dot" title="Disconnected"></div>
+  </div>
+
+  <div class="pl-banner">Local view &mdash; raw data never leaves this machine</div>
+
+  <!-- Pairing Bar -->
+  <div class="pl-pairing-bar">
+    <input type="password" id="pl-token-input" class="pl-input" placeholder="Paste X-PL-Token here">
+    <button id="pl-token-save-btn" class="pl-btn pl-btn-neon">Pair</button>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="pl-tabs">
+    <button class="pl-tab-btn active" data-tab="tab-shield">Shield</button>
+    <button class="pl-tab-btn" data-tab="tab-aiview">AI View</button>
+    <button class="pl-tab-btn" data-tab="tab-agent">Agent</button>
+    <button class="pl-tab-btn" data-tab="tab-gate">Gate</button>
+    <button class="pl-tab-btn" data-tab="tab-results">Results</button>
+    <button class="pl-tab-btn" data-tab="tab-receipt">Receipt</button>
+  </div>
+
+  <!-- TAB 1: Shield -->
+  <div id="tab-shield" class="pl-tab-content active">
+    <div class="pl-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="pl-card-title">Live Perception Shield</span>
+        <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="pl-shield-toggle" style="accent-color:var(--neon-cyan);">
+          <span style="font-weight:600; font-size:12px;">Active</span>
+        </label>
+      </div>
+      <div id="pl-shield-summary" style="margin-top:8px; font-weight:600; color:var(--neon-cyan);">
+        0 secrets hidden from AI on this page
+      </div>
+      <div id="pl-latency-chip" style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+        Scan latency: -- ms
+      </div>
+      <div class="pl-counters-grid" id="pl-counters-grid">
+        <div class="pl-counter-item"><div class="pl-counter-val" id="cnt-card">0</div><div class="pl-counter-lbl">Cards</div></div>
+        <div class="pl-counter-item"><div class="pl-counter-val" id="cnt-auth">0</div><div class="pl-counter-lbl">Auth/Keys</div></div>
+        <div class="pl-counter-item"><div class="pl-counter-val" id="cnt-contact">0</div><div class="pl-counter-lbl">Email/Phone</div></div>
+        <div class="pl-counter-item"><div class="pl-counter-val" id="cnt-id">0</div><div class="pl-counter-lbl">Gov IDs</div></div>
+      </div>
+    </div>
+
+    <div class="pl-card">
+      <div class="pl-card-title">Site Policy Override</div>
+      <div style="display:flex; gap:6px; margin-top:6px;">
+        <select id="pl-policy-type" class="pl-input" style="flex:1;">
+          <option value="CARD">Payment Card</option>
+          <option value="API_KEY">API Key</option>
+          <option value="PASSWORD">Password</option>
+          <option value="EMAIL">Email</option>
+          <option value="PHONE">Phone</option>
+        </select>
+        <select id="pl-policy-action" class="pl-input" style="width:90px;">
+          <option value="mask">Mask</option>
+          <option value="allow">Allow</option>
+          <option value="block">Block</option>
+        </select>
+        <button id="pl-policy-set-btn" class="pl-btn pl-btn-neon">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: AI View -->
+  <div id="tab-aiview" class="pl-tab-content">
+    <div class="pl-card">
+      <div class="pl-card-title">Dual View (Local Original vs Sanitized Model Prompt)</div>
+      <div class="pl-split-view">
+        <div class="pl-split-col" id="pl-view-original" title="Local Raw Text (Never Leaves Machine)">
+          <em>Raw page text (local only)...</em>
+        </div>
+        <div class="pl-split-col" id="pl-view-sanitized" title="Sanitized Model Prompt (What AI Sees)">
+          <em>Model prompt text...</em>
+        </div>
+      </div>
+    </div>
+    <div class="pl-card">
+      <div class="pl-card-title">Screenshot Redaction Preview</div>
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">
+        Viewport-only redaction verification.
+      </div>
+      <button id="pl-btn-test-screenshot" class="pl-btn pl-btn-neon" style="width:100%;">Verify Page Screenshot</button>
+      <div id="pl-screenshot-status" style="margin-top:6px; font-size:11px; color:var(--neon-cyan);"></div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Agent -->
+  <div id="tab-agent" class="pl-tab-content">
+    <div class="pl-card">
+      <div class="pl-card-title">Autonomous Task Runner</div>
+      <textarea id="pl-agent-task" class="pl-input" rows="2" style="width:100%; margin-bottom:6px;" placeholder="Describe agent task..."></textarea>
+      
+      <div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap;">
+        <button class="pl-btn" style="font-size:10px; padding:3px 6px;" onclick="setTask('Fill out checkout form and submit order')">Checkout</button>
+        <button class="pl-btn" style="font-size:10px; padding:3px 6px;" onclick="setTask('Log in to enterprise developer portal')">Auth</button>
+        <button class="pl-btn" style="font-size:10px; padding:3px 6px;" onclick="setTask('Rotate primary server credentials')">Rotate Key</button>
+      </div>
+
+      <div style="margin-bottom:8px;">
+        <label style="font-size:11px; color:var(--text-muted);">Execution Engine / Model:</label>
+        <select id="pl-agent-model" class="pl-input" style="width:100%; margin-top:2px;">
+          <option value="replay:checkout">Replay of recorded live Gemini run: checkout</option>
+          <option value="replay:auth">Replay of recorded live Gemini run: auth</option>
+          <option value="replay:devsettings">Replay of recorded live Gemini run: devsettings</option>
+          <option value="gemini">Gemini Live (Free-tier Quota Alert)</option>
+        </select>
+      </div>
+
+      <div style="display:flex; gap:6px;">
+        <button id="pl-agent-run-btn" class="pl-btn pl-btn-primary" style="flex:1;">Run Task</button>
+        <button id="pl-agent-stop-btn" class="pl-btn pl-btn-danger">Stop</button>
+      </div>
+    </div>
+
+    <div class="pl-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="pl-card-title">Session Secrets Profile</span>
+        <button id="pl-load-demo-secrets-btn" class="pl-btn" style="font-size:10px; padding:2px 6px;">Load Demo Secrets</button>
+      </div>
+      <div id="pl-secrets-profile-list" style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+        Names: (None registered)
+      </div>
+    </div>
+
+    <div class="pl-card">
+      <div class="pl-card-title">Event Timeline</div>
+      <div class="pl-timeline" id="pl-agent-timeline">
+        <div class="pl-timeline-event" style="border-left-color:gray;">Ready to initiate run.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Gate -->
+  <div id="tab-gate" class="pl-tab-content">
+    <div class="pl-card">
+      <div class="pl-card-title">Egress Gate Attack Simulator</div>
+      <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">
+        Test multi-layer egress inspection against known obfuscation vectors.
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+        <button class="pl-btn" onclick="testGate('leaky_card')">Leaky Card</button>
+        <button class="pl-btn" onclick="testGate('leaky_base64')">Base64 Card</button>
+        <button class="pl-btn" onclick="testGate('leaky_split_json')">Split JSON</button>
+        <button class="pl-btn" onclick="testGate('leaky_zero_width')">Zero-Width</button>
+        <button class="pl-btn" style="grid-column: span 2;" onclick="testGate('leaky_image')">Canary Image Leak</button>
+      </div>
+      <div id="pl-gate-result" style="margin-top:8px; font-size:11px; padding:6px; border-radius:4px; display:none;"></div>
+    </div>
+
+    <div class="pl-card">
+      <div class="pl-card-title">Load Adversarial Injection Test Page</div>
+      <div style="display:flex; flex-direction:column; gap:4px; margin-top:6px;">
+        <button class="pl-btn" onclick="loadAdversarial('checkout2.html')">Holdout Checkout 2</button>
+        <button class="pl-btn" onclick="loadAdversarial('auth2.html')">Holdout Auth 2</button>
+        <button class="pl-btn" onclick="loadAdversarial('support2.html')">Holdout Support 2</button>
+        <button class="pl-btn" onclick="loadAdversarial('shadow_iframe.html')">Shadow DOM & Iframes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: Results -->
+  <div id="tab-results" class="pl-tab-content">
+    <div class="pl-card">
+      <div class="pl-card-title">Benchmark Summary Cards</div>
+      <div id="pl-results-container" style="display:flex; flex-direction:column; gap:8px;">
+        Loading benchmark cards...
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 6: Receipt -->
+  <div id="tab-receipt" class="pl-tab-content">
+    <div class="pl-card">
+      <div class="pl-card-title">Verifiable Run Receipt</div>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <input type="text" id="pl-receipt-id-input" class="pl-input" placeholder="Enter run_id (e.g. latest)">
+        <button id="pl-btn-fetch-receipt" class="pl-btn pl-btn-neon">Fetch</button>
+      </div>
+      <pre id="pl-receipt-display" style="background:var(--bg-tertiary); padding:8px; border-radius:4px; font-size:11px; max-height:200px; overflow-y:auto; color:#a5f3fc;"></pre>
+      <button id="pl-btn-copy-receipt" class="pl-btn pl-btn-primary" style="width:100%; margin-top:8px;">Copy Receipt</button>
+    </div>
+  </div>
+
+  <!-- Approval Modal -->
+  <div id="pl-approval-modal" class="pl-modal-backdrop">
+    <div class="pl-modal">
+      <div class="pl-card-title" style="color:var(--neon-orange);">Action Approval Required</div>
+      <div id="pl-approval-body" style="font-size:12px; margin:10px 0; color:var(--text-main);"></div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="pl-btn-deny" class="pl-btn pl-btn-danger">Deny</button>
+        <button id="pl-btn-approve" class="pl-btn pl-btn-neon">Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trust Modal -->
+  <div id="pl-trust-modal" class="pl-modal-backdrop">
+    <div class="pl-modal">
+      <div class="pl-card-title" style="color:var(--neon-cyan);">Origin Trust Prompt</div>
+      <div id="pl-trust-body" style="font-size:12px; margin:10px 0; color:var(--text-main);"></div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="pl-btn-trust-deny" class="pl-btn pl-btn-danger">Deny</button>
+        <button id="pl-btn-trust-allow" class="pl-btn pl-btn-neon">Trust</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
