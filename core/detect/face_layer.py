@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import io
 import os
 from typing import List, Union
@@ -34,9 +35,18 @@ def _to_cv2_image(image_input: Union[str, bytes, np.ndarray, Image.Image]) -> np
         nparr = np.frombuffer(image_input, np.uint8)
         return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if isinstance(image_input, str):
-        if not os.path.isfile(image_input):
+        if os.path.isfile(image_input):
+            return cv2.imread(image_input)
+        # Try decoding as base64 string or data URI
+        try:
+            b64_str = image_input.strip()
+            if "," in b64_str and "base64" in b64_str[:30]:
+                b64_str = b64_str.split(",", 1)[1]
+            raw_bytes = base64.b64decode(b64_str)
+            nparr = np.frombuffer(raw_bytes, np.uint8)
+            return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        except Exception:
             return None
-        return cv2.imread(image_input)
     return None
 
 

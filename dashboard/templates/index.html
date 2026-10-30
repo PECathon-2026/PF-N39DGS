@@ -169,11 +169,25 @@
         <!-- Left: LOCAL ONLY -->
         <div class="pane">
           <div class="pane-header pane-header-local">
-            <span class="pane-header-icon">🔒</span>
-            LOCAL BROWSER — Raw Data Kept on Machine
+            <div class="flex-row" style="gap:8px;align-items:center;">
+              <span class="pane-header-icon">🔒</span>
+              <span>LOCAL BROWSER — Raw Data Kept on Machine</span>
+            </div>
+            <div class="pane-view-toggle">
+              <button type="button" class="toggle-btn active" id="btn-toggle-local-threats">🛡️ Threats</button>
+              <button type="button" class="toggle-btn" id="btn-toggle-local-raw">📸 Raw View</button>
+            </div>
           </div>
+          <!-- Threats tab (default) -->
           <div class="pane-body" id="pane-local-body">
-            <span class="pane-body-empty">Waiting for capture…</span>
+            <span class="pane-body-empty" id="pane-local-empty">Waiting for capture…</span>
+          </div>
+          <!-- Raw screenshot tab -->
+          <div class="pane-body hidden" id="pane-local-raw-body">
+            <div class="raw-screenshot-notice">⚠️ Raw sensitive data visible below — kept on this machine only</div>
+            <div class="img-preview-container" id="raw-img-box">
+              <span class="pane-body-empty">No screenshot yet.</span>
+            </div>
           </div>
         </div>
 

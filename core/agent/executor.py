@@ -28,7 +28,7 @@ class ExecutionResult:
 
 
 def _find_locator(page: Any, target: str):
-    """Locate an element using data-pl-id assigned during perception capture, or id."""
+    """Locate an element using data-pl-id assigned during perception capture, id, or name."""
     loc = page.locator(f'[data-pl-id="{target}"]')
     try:
         if loc.count() > 0:
@@ -43,6 +43,13 @@ def _find_locator(page: Any, target: str):
     except Exception:
         pass
 
+    loc_name = page.locator(f'[name="{target}"]')
+    try:
+        if loc_name.count() > 0:
+            return loc_name
+    except Exception:
+        pass
+
     return page.locator(f'[data-pl-id="{target}"]')
 
 
@@ -51,6 +58,7 @@ def execute_action(page: Any, action: Action) -> ExecutionResult:
     
     Symbolic vault references (e.g. 'vault:CARD_NUMBER') are resolved LOCALLY here
     and injected directly into page inputs. Raw secrets are NEVER logged.
+    Supports React/Vue/Angular controlled inputs via native prototype setters.
     """
     act_type = action.action_type.lower().strip()
     target = action.target
@@ -82,7 +90,28 @@ def execute_action(page: Any, action: Action) -> ExecutionResult:
                 safe_log_val = f"'{raw_val[:20]}...'" if len(raw_val) > 20 else f"'{raw_val}'"
 
             locator = _find_locator(page, target)
-            locator.first.fill(resolved)
+            try:
+                locator.first.fill(resolved)
+            except Exception:
+                pass
+
+            # Support React / Vue controlled inputs by invoking native prototype setter
+            try:
+                locator.first.evaluate("""(el, val) => {
+                    const isTextArea = el instanceof HTMLTextAreaElement;
+                    const proto = isTextArea ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+                    const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+                    if (nativeSetter) {
+                        nativeSetter.call(el, val);
+                    } else {
+                        el.value = val;
+                    }
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }""", resolved)
+            except Exception:
+                pass
+
             return ExecutionResult(
                 True,
                 act_type,
@@ -113,6 +142,17 @@ def execute_action(page: Any, action: Action) -> ExecutionResult:
             page.mouse.wheel(0, delta_y)
             return ExecutionResult(True, act_type, target, f"Scrolled page by {delta_y}px")
 
+        elif act_type == "navigate":
+            url_to_go = action.value or action.target
+            if url_to_go and (url_to_go.startswith("http://") or url_to_go.startswith("https://") or url_to_go.startswith("file:///")):
+                page.goto(url_to_go)
+                try:
+                    page.wait_for_load_state("domcontentloaded", timeout=3000)
+                except Exception:
+                    pass
+                return ExecutionResult(True, act_type, target, f"Navigated to {url_to_go}")
+            return ExecutionResult(False, act_type, target, "Invalid navigation URL")
+
         elif act_type == "wait":
             page.wait_for_timeout(500)
             return ExecutionResult(True, act_type, target, "Waited 500ms")
@@ -137,4 +177,3 @@ __all__ = [
     "ExecutionResult",
     "execute_action",
 ]
-

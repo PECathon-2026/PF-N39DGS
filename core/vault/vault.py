@@ -31,9 +31,13 @@ def load_vault(env_path: Optional[str] = None) -> Dict[str, str]:
             sub_key = k[6:]
             _VAULT[k] = v_clean
             _VAULT[sub_key] = v_clean
-        elif k in ("CARD_NUMBER", "PASSWORD", "AADHAAR", "PAN", "API_KEY", "USER_EMAIL"):
+            _VAULT[k.lower()] = v_clean
+            _VAULT[sub_key.lower()] = v_clean
+        elif k in ("CARD_NUMBER", "PASSWORD", "AADHAAR", "PAN", "API_KEY", "USER_EMAIL", "CVV", "EXPIRY"):
             _VAULT[k] = v_clean
             _VAULT[f"VAULT_{k}"] = v_clean
+            _VAULT[k.lower()] = v_clean
+            _VAULT[f"vault_{k.lower()}"] = v_clean
 
     return dict(_VAULT)
 
@@ -48,26 +52,41 @@ def set_secret(key: str, value: str) -> None:
     k_norm = key.strip()
     v_norm = value.strip()
     _VAULT[k_norm] = v_norm
+    _VAULT[k_norm.lower()] = v_norm
     if not k_norm.startswith("VAULT_"):
         _VAULT[f"VAULT_{k_norm}"] = v_norm
+        _VAULT[f"vault_{k_norm.lower()}"] = v_norm
     else:
         _VAULT[k_norm[6:]] = v_norm
+        _VAULT[k_norm[6:].lower()] = v_norm
 
 
 def get_secret(key: str) -> Optional[str]:
     """Retrieve a secret by symbolic key name."""
     if key in _VAULT:
         return _VAULT[key]
+    if key.lower() in _VAULT:
+        return _VAULT[key.lower()]
     if f"VAULT_{key}" in _VAULT:
         return _VAULT[f"VAULT_{key}"]
+    if f"vault_{key.lower()}" in _VAULT:
+        return _VAULT[f"vault_{key.lower()}"]
     if key.startswith("VAULT_") and key[6:] in _VAULT:
         return _VAULT[key[6:]]
     return None
 
 
 def is_vault_ref(value: Any) -> bool:
-    """Check if a value is a symbolic vault reference (e.g. 'vault:CARD_NUMBER')."""
-    return isinstance(value, str) and value.startswith("vault:")
+    """Check if a value is a symbolic vault reference (e.g. 'vault:CARD_NUMBER' or '$VAULT:PASSWORD')."""
+    if not isinstance(value, str):
+        return False
+    val_clean = value.strip()
+    return (
+        val_clean.startswith("vault:")
+        or val_clean.startswith("$VAULT:")
+        or val_clean.startswith("$vault:")
+        or val_clean.startswith("VAULT:")
+    )
 
 
 def resolve_value(value: Any) -> Any:
@@ -78,7 +97,16 @@ def resolve_value(value: Any) -> Any:
     if not is_vault_ref(value):
         return value
 
-    ref_key = value[len("vault:"):].strip()
+    val_str = str(value).strip()
+    if val_str.startswith("$VAULT:"):
+        ref_key = val_str[len("$VAULT:"):].strip()
+    elif val_str.startswith("$vault:"):
+        ref_key = val_str[len("$vault:"):].strip()
+    elif val_str.startswith("VAULT:"):
+        ref_key = val_str[len("VAULT:"):].strip()
+    else:
+        ref_key = val_str[len("vault:"):].strip()
+
     if ref_key.startswith("<") and ref_key.endswith(">"):
         ref_key = ref_key[1:-1].strip()
 
@@ -86,7 +114,11 @@ def resolve_value(value: Any) -> Any:
     if secret is not None:
         return secret
 
-    env_val = os.environ.get(ref_key) or os.environ.get(f"VAULT_{ref_key}")
+    env_val = (
+        os.environ.get(ref_key)
+        or os.environ.get(ref_key.upper())
+        or os.environ.get(f"VAULT_{ref_key.upper()}")
+    )
     if env_val:
         return env_val.strip()
 
@@ -102,7 +134,7 @@ def all_symbolic_refs() -> List[str]:
     """Return all available symbolic reference keys as vault:KEY."""
     unique_keys = set()
     for k in _VAULT.keys():
-        if not k.startswith("VAULT_"):
+        if not k.startswith("VAULT_") and not k.startswith("vault_") and k.isupper():
             unique_keys.add(f"vault:{k}")
     return sorted(unique_keys)
 
@@ -126,4 +158,3 @@ __all__ = [
     "all_symbolic_refs",
     "clear_vault",
 ]
-

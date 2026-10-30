@@ -11,10 +11,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 from PIL import Image
-import pytesseract
-
 from core.detect import face_layer, ocr_layer, regex_layer
 from core.detect.regex_layer import scan_text
+from core.detect.ocr_layer import extract_confident_text
 from core.sanitize import (
     disable_sanitization,
     is_sanitization_enabled,
@@ -226,8 +225,10 @@ def check_payload(
         if image_bytes is not None and image_bytes != b"" and image_bytes != "":
             img = _load_guard_image(image_bytes)
 
-            # Re-OCR image text
-            ocr_text = pytesseract.image_to_string(img)
+            # Re-OCR image text — use confidence-filtered extraction to suppress
+            # garbage characters from solid-black redaction rectangles (these score
+            # 0-50 in Tesseract and would cause false-positive BLOCK events).
+            ocr_text = extract_confident_text(img, min_confidence=70)
             if ocr_text.strip():
                 ocr_findings = scan_text(ocr_text)
                 for f in ocr_findings:

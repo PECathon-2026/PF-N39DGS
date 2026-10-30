@@ -117,3 +117,28 @@ def scan_image(image_input: Union[str, bytes, Image.Image]) -> List[Finding]:
         )
 
     return ocr_findings
+
+
+def extract_confident_text(image_input: Union[str, bytes, "Image.Image"], min_confidence: int = 70) -> str:
+    """Return OCR text composed only of words with Tesseract confidence >= min_confidence.
+
+    Used by the egress guard to suppress garbage characters produced when OCR runs over
+    solid-black redaction rectangles.  Those artefacts score 0-50 in Tesseract and would
+    otherwise trigger false-positive BLOCK events on clean, fully-masked payloads.
+
+    Args:
+        image_input: path, bytes, or PIL Image.
+        min_confidence: Tesseract word-level confidence threshold (0-100).  Default 70.
+
+    Returns:
+        Space-joined string of high-confidence words only.  Empty string if nothing passes.
+    """
+    _ensure_tesseract_binary()
+    img = _load_image(image_input)
+    data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+    words = [
+        data["text"][i].strip()
+        for i in range(len(data.get("text", [])))
+        if data["text"][i].strip() and int(data["conf"][i]) >= min_confidence
+    ]
+    return " ".join(words)

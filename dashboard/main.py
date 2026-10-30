@@ -24,7 +24,8 @@ _REPO_ROOT = Path(__file__).parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from fastapi import FastAPI, Form, Request
+from fastapi import Body, FastAPI, Form, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -34,6 +35,14 @@ from jinja2 import Environment, FileSystemLoader
 # App init
 # ---------------------------------------------------------------------------
 app = FastAPI(title="PrivacyLens Dashboard", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 _DASHBOARD_DIR = Path(__file__).parent
 _STATIC_DIR = _DASHBOARD_DIR / "static"
@@ -61,6 +70,7 @@ _state: Dict[str, Any] = {
     "last_guard_categories": {},
     "blocked_events": [],       # from guard (category_counts + reason only)
     "pending_action": None,     # sanitized Action dict awaiting human approval
+    "next_action": None,        # action dispatched to live browser extension
     "approval_event": None,     # threading.Event
     "approval_result": None,    # bool
     "eval_running": False,
@@ -69,6 +79,12 @@ _state: Dict[str, Any] = {
 }
 
 _state_lock = threading.Lock()
+
+# In-memory raw (pre-redaction) screenshot storage — single task, local only.
+# INVARIANT: _raw_store is NEVER transmitted externally. It is served only via
+# GET /raw_preview which is localhost-bound (uvicorn default).  It is cleared
+# when a new task starts and when the stage returns to IDLE.
+_raw_store: dict = {}
 
 
 def _safe_state_update(updates: Dict[str, Any]) -> None:
@@ -113,8 +129,17 @@ def _extract_redactions_from_text(sanitized_text: str) -> List[Dict[str, Any]]:
     return redactions
 
 
-def _run_task_background(url: str, task: str, max_steps: int) -> None:
+def _run_task_background(
+    url: str,
+    task: str,
+    max_steps: int,
+    ext_dom_snapshot: Optional[Dict[str, Any]] = None,
+    ext_screenshot_b64: Optional[str] = None,
+) -> None:
     """Background thread: runs the full agent loop and updates _state."""
+    # Clear raw store for fresh task — ensures left pane shows current task only
+    _raw_store.clear()
+
     _safe_state_update({
         "stage": "CAPTURE",
         "url": url,
@@ -128,6 +153,7 @@ def _run_task_background(url: str, task: str, max_steps: int) -> None:
         "last_guard_passed": None,
         "last_guard_categories": {},
         "pending_action": None,
+        "next_action": None,
         "approval_event": None,
         "approval_result": None,
     })
@@ -135,37 +161,19 @@ def _run_task_background(url: str, task: str, max_steps: int) -> None:
     preview_store: Dict[str, Any] = {}
 
     def approval_cb(action: Any, san_snap: Dict[str, Any]) -> bool:
-        """Called by run_agent_loop when a high-risk action needs human approval.
-
-        INVARIANT: Only sanitized metadata is stored — action.thought may
-        reference [REDACTED:X] placeholders but never raw values, as the
-        sanitized snapshot has already been processed by this point.
-        """
-        # Store sanitized preview snapshot at this point
+        """Called by run_agent_loop when a high-risk action needs human approval."""
         san_text = _render_snap(san_snap)
         redactions = _extract_redactions_from_text(san_text)
 
-        # Extract masked image b64 if present (already masked by pipeline)
-        masked_b64: Optional[str] = None
-        raw_b64 = san_snap.get("screenshot_b64")
-        if raw_b64:
-            # The screenshot in san_snap is still the original; we cannot
-            # access masked bytes here without storing them separately.
-            # We omit image in approval callback preview — the full preview
-            # is populated after loop completion.
-            masked_b64 = None
-
         preview_store.update({
             "sanitized_text": san_text,
-            "masked_image_b64": masked_b64,
             "redactions": redactions,
         })
 
-        # Sanitized action dict for the UI (NEVER includes raw values)
         safe_action = {
             "action_type": action.action_type,
             "target": action.target,
-            "thought": action.thought,   # Already sanitized by pipeline
+            "thought": action.thought,
             "risk_level": action.risk_level,
         }
 
@@ -188,10 +196,26 @@ def _run_task_background(url: str, task: str, max_steps: int) -> None:
         })
         return bool(result)
 
-    def on_step(step_idx: int, san_snap: Dict[str, Any], masked_bytes: bytes) -> None:
+    def on_step(step_idx: int, san_snap: Dict[str, Any], masked_bytes: bytes,
+                raw_screenshot_b64: Optional[str] = None) -> None:
         san_text = _render_snap(san_snap)
         redactions = _extract_redactions_from_text(san_text)
         masked_b64 = base64.b64encode(masked_bytes).decode("ascii") if masked_bytes else None
+
+        if raw_screenshot_b64:
+            _raw_store["raw_screenshot_b64"] = raw_screenshot_b64
+            # Also register visual face redactions so the dashboard metadata reflects visual protections
+            try:
+                from core.detect import face_layer
+                face_finds = face_layer.scan_image(raw_screenshot_b64)
+                for _ in face_finds:
+                    redactions.append({
+                        "category": "FACE",
+                        "layer": "face",
+                        "confidence": 0.90,
+                    })
+            except Exception:
+                pass
 
         preview_store.update({
             "sanitized_text": san_text,
@@ -206,19 +230,65 @@ def _run_task_background(url: str, task: str, max_steps: int) -> None:
     try:
         from core.agent.client import EgressBlockedError, run_agent_loop
         from core.egress.guard import get_blocked_events
+        from core.vault import vault
 
+        # If an active browser extension provided a live snapshot & screenshot,
+        # process that exact live user tab directly (step 0 of an extension-driven task)
+        if ext_dom_snapshot and ext_screenshot_b64:
+            preview_store_ext: Dict[str, Any] = {}
+
+            def _ext_approval_cb(action, san_snap):
+                san_text = _render_snap(san_snap)
+                redactions = _extract_redactions_from_text(san_text)
+                safe_action = {
+                    "action_type": action.action_type,
+                    "target": action.target,
+                    "thought": action.thought,
+                    "risk_level": action.risk_level,
+                }
+                preview_store_ext.update({
+                    "sanitized_text": san_text,
+                    "redactions": redactions,
+                })
+                ev = threading.Event()
+                _safe_state_update({
+                    "stage": "VALIDATE",
+                    "pending_action": safe_action,
+                    "approval_event": ev,
+                    "approval_result": None,
+                    "preview": dict(preview_store_ext),
+                })
+                ev.wait(timeout=300)
+                result = _state.get("approval_result", False)
+                _safe_state_update({"pending_action": None, "approval_event": None})
+                return bool(result)
+
+            def _ext_on_step(step_i, san_snap, masked_bytes, raw_b64=None):
+                san_text = _render_snap(san_snap)
+                redactions = _extract_redactions_from_text(san_text)
+                masked_b64 = base64.b64encode(masked_bytes).decode("ascii") if masked_bytes else None
+                if raw_b64:
+                    _raw_store["raw_screenshot_b64"] = raw_b64
+                preview_store_ext.update({
+                    "sanitized_text": san_text,
+                    "masked_image_b64": masked_b64,
+                    "redactions": redactions,
+                })
+                _safe_state_update({"preview": dict(preview_store_ext)})
+
+            _process_ext_snapshot(
+                ext_dom_snapshot, ext_screenshot_b64, task, 0,
+                _ext_approval_cb, _ext_on_step,
+            )
+            return
+
+        # Standard Playwright loop for local evaluation scenarios and headless execution
         _safe_state_update({"stage": "EXECUTE"})
         exec_results = run_agent_loop(
             url, task, max_steps=max_steps, approval_callback=approval_cb, on_step_callback=on_step
         )
 
-        # Convert results to safe dicts (no raw values)
         steps_dicts = [r.to_dict() for r in exec_results]
-
-        # Build last-action description from final result
-        last_step = steps_dicts[-1] if steps_dicts else {}
-        last_action = last_step.get("message", "")
-
         _safe_state_update({
             "stage": "DONE",
             "steps_results": steps_dicts,
@@ -235,7 +305,7 @@ def _run_task_background(url: str, task: str, max_steps: int) -> None:
             blocked_evts = get_blocked_events()
             _safe_state_update({
                 "stage": "BLOCKED",
-                "blocked_events": blocked_evts,          # category_counts + reason only
+                "blocked_events": blocked_evts,
                 "last_guard_passed": False,
                 "last_guard_categories": exc.category_counts,
                 "error": None,
@@ -297,17 +367,18 @@ async def start_task(
     task: Optional[str] = Form(default=None),
     max_steps: Optional[int] = Form(default=None),
 ) -> JSONResponse:
-    """Start a new agent task.
+    """Start a new agent task. Accepts either JSON body or HTML form data."""
+    ext_dom_snapshot = None
+    ext_screenshot_b64 = None
 
-    Accepts either JSON body or HTML form data.
-    """
-    # If form data is empty, try JSON body
     if url is None and task is None:
         try:
             body = await request.json()
             url = body.get("url", "")
             task = body.get("task", "")
             max_steps = body.get("max_steps", 5)
+            ext_dom_snapshot = body.get("ext_dom_snapshot")
+            ext_screenshot_b64 = body.get("ext_screenshot_b64")
         except Exception:
             return JSONResponse({"error": "Could not parse request body"}, status_code=400)
 
@@ -321,7 +392,7 @@ async def start_task(
     max_steps = int(max_steps or 5)
 
     current_stage = _state.get("stage", "IDLE")
-    if current_stage not in ("IDLE", "DONE", "BLOCKED", "ERROR"):
+    if current_stage not in ("IDLE", "DONE", "BLOCKED", "ERROR", "EXECUTE"):
         return JSONResponse(
             {"error": f"Task already running (stage={current_stage})"},
             status_code=409,
@@ -329,7 +400,7 @@ async def start_task(
 
     t = threading.Thread(
         target=_run_task_background,
-        args=(url, task, max_steps),
+        args=(url, task, max_steps, ext_dom_snapshot, ext_screenshot_b64),
         daemon=True,
     )
     t.start()
@@ -351,7 +422,6 @@ async def get_status() -> JSONResponse:
         last_action = steps[-1].get("message", "")
 
     blocked_evts = s.get("blocked_events", [])
-    # Strip any raw-value fields if somehow present (defence in depth)
     safe_blocked = [
         {
             "event_id": e.get("event_id", ""),
@@ -374,11 +444,238 @@ async def get_status() -> JSONResponse:
         "blocked_categories": s.get("last_guard_categories", {}),
         "blocked_events": safe_blocked,
         "pending_action": s.get("pending_action"),   # sanitized metadata only
+        "next_action": s.get("next_action"),         # action dispatched to browser extension
         "last_action": last_action,
         "guard_passed": s.get("last_guard_passed"),
         "eval_running": s.get("eval_running", False),
         "error": s.get("error"),
     })
+
+
+@app.post("/action_done")
+async def action_done(payload: Dict[str, Any] = Body(...)) -> JSONResponse:
+    """Acknowledged by the browser extension when it finishes executing next_action."""
+    with _state_lock:
+        _state["next_action"] = None
+        if payload.get("message"):
+            _state["steps_results"].append({
+                "success": payload.get("success", True),
+                "message": str(payload.get("message")),
+            })
+    return JSONResponse({"status": "ok"})
+
+
+def _process_ext_snapshot(
+    ext_dom_snapshot: Dict[str, Any],
+    ext_screenshot_b64: str,
+    task: str,
+    step_idx: int,
+    approval_cb_fn,
+    on_step_fn,
+) -> None:
+    """Core pipeline for one extension-supplied snapshot: detect→sanitise→guard→model→validate→dispatch.
+
+    Called both from _run_task_background (step 0) and _next_step_background (steps 1+).
+    Updates _state with the resulting next_action or terminal state.
+    """
+    from core.detect import dom_layer, face_layer, fusion, ocr_layer, regex_layer
+    from core.sanitize import mask_image_bytes, sanitize_dom
+    from core.agent.client import build_user_prompt, send_to_model, EgressBlockedError
+    from core.agent.validator import parse_action_proposal, validate_action
+    from core.vault import vault
+
+    live_snap = dict(ext_dom_snapshot)
+    live_snap["screenshot_b64"] = ext_screenshot_b64
+    live_raw_bytes = base64.b64decode(ext_screenshot_b64)
+    _raw_store["raw_screenshot_b64"] = ext_screenshot_b64
+
+    _safe_state_update({"stage": "DETECT"})
+    d_find = dom_layer.scan_dom(live_snap)
+    full_text = " ".join([
+        el.get("text", "") + " " + el.get("value", "")
+        for el in live_snap.get("elements", [])
+    ])
+    if live_snap.get("text"):
+        full_text += " " + live_snap["text"]
+    r_find = regex_layer.scan_text(full_text)
+    o_find = ocr_layer.scan_image(live_raw_bytes)
+    f_find = face_layer.scan_image(live_raw_bytes)
+    fused = fusion.fuse(d_find + r_find + o_find + f_find)
+
+    _safe_state_update({"stage": "SANITIZE"})
+    san_snap = sanitize_dom(live_snap, fused)
+    masked_bytes = mask_image_bytes(live_raw_bytes, fused, padding=4)
+    on_step_fn(step_idx, san_snap, masked_bytes, ext_screenshot_b64)
+
+    _safe_state_update({"stage": "GUARD"})
+    prompt = build_user_prompt(task, san_snap)
+
+    _safe_state_update({"stage": "MODEL"})
+    model_reply = send_to_model(
+        prompt=prompt,
+        image_bytes=masked_bytes,
+        task_context=task,
+        snapshot_context=san_snap,
+        step=step_idx,
+    )
+
+    _safe_state_update({"stage": "VALIDATE"})
+    action = parse_action_proposal(model_reply)
+    v_res = validate_action(action, san_snap)
+    if v_res.requires_approval:
+        approval_cb_fn(action, san_snap)
+
+    # Resolve vault symbolic refs LOCALLY — never sent to LLM
+    resolved_val = vault.resolve_value(action.value) if action.value else None
+    is_done = (action.action_type == "done")
+
+    with _state_lock:
+        existing_results = list(_state.get("steps_results", []))
+
+    existing_results.append({
+        "success": True,
+        "action_type": action.action_type,
+        "target": action.target,
+        "message": f"{action.action_type.capitalize()} on {action.target} ({action.thought})",
+    })
+
+    _safe_state_update({
+        "stage": "DONE" if is_done else "EXECUTE",
+        "next_action": None if is_done else {
+            "action_type": action.action_type,
+            "target": action.target,
+            "value": resolved_val,
+            "thought": action.thought,
+        },
+        "steps_results": existing_results,
+        "step": step_idx + 1,
+        "last_guard_passed": True,
+    })
+
+
+def _next_step_background(
+    ext_dom_snapshot: Dict[str, Any],
+    ext_screenshot_b64: str,
+    task: str,
+    step_idx: int,
+) -> None:
+    """Background thread: process the NEXT step for an already-running extension task."""
+
+    preview_store: Dict[str, Any] = {}
+
+    def _approval_cb(action, san_snap):
+        san_text = _render_snap(san_snap)
+        redactions = _extract_redactions_from_text(san_text)
+        safe_action = {
+            "action_type": action.action_type,
+            "target": action.target,
+            "thought": action.thought,
+            "risk_level": action.risk_level,
+        }
+        preview_store.update({
+            "sanitized_text": san_text,
+            "redactions": redactions,
+        })
+        ev = threading.Event()
+        _safe_state_update({
+            "stage": "VALIDATE",
+            "pending_action": safe_action,
+            "approval_event": ev,
+            "approval_result": None,
+            "preview": dict(preview_store),
+        })
+        ev.wait(timeout=300)
+        result = _state.get("approval_result", False)
+        _safe_state_update({"pending_action": None, "approval_event": None})
+        return bool(result)
+
+    def _on_step(step_i, san_snap, masked_bytes, raw_b64=None):
+        san_text = _render_snap(san_snap)
+        redactions = _extract_redactions_from_text(san_text)
+        masked_b64 = base64.b64encode(masked_bytes).decode("ascii") if masked_bytes else None
+        if raw_b64:
+            _raw_store["raw_screenshot_b64"] = raw_b64
+        preview_store.update({
+            "sanitized_text": san_text,
+            "masked_image_b64": masked_b64,
+            "redactions": redactions,
+        })
+        _safe_state_update({"preview": dict(preview_store)})
+
+    try:
+        _process_ext_snapshot(
+            ext_dom_snapshot, ext_screenshot_b64, task, step_idx, _approval_cb, _on_step
+        )
+    except Exception as exc:
+        from core.agent.client import EgressBlockedError
+        from core.egress.guard import get_blocked_events
+        if isinstance(exc, EgressBlockedError):
+            blocked_evts = get_blocked_events()
+            _safe_state_update({
+                "stage": "BLOCKED",
+                "blocked_events": blocked_evts,
+                "last_guard_passed": False,
+                "last_guard_categories": exc.category_counts,
+                "error": None,
+            })
+        else:
+            _safe_state_update({
+                "stage": "ERROR",
+                "error": type(exc).__name__,
+                "last_guard_passed": None,
+            })
+
+
+@app.post("/next_step")
+async def next_step(request: Request) -> JSONResponse:
+    """Continue a running extension-driven task with the next DOM snapshot.
+
+    Called by the browser extension after it has finished executing the previous action.
+    Accepts the same ext_dom_snapshot + ext_screenshot_b64 payload as /task, but
+    does NOT reset task state — it increments the step counter and processes the
+    next pipeline cycle on the already-running task.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Could not parse request body"}, status_code=400)
+
+    ext_dom_snapshot = body.get("ext_dom_snapshot")
+    ext_screenshot_b64 = body.get("ext_screenshot_b64")
+
+    if not ext_dom_snapshot or not ext_screenshot_b64:
+        return JSONResponse({"error": "ext_dom_snapshot and ext_screenshot_b64 are required"}, status_code=422)
+
+    with _state_lock:
+        current_stage = _state.get("stage", "IDLE")
+        task = _state.get("task", "")
+        current_step = _state.get("step", 0)
+        max_steps = _state.get("max_steps", 5)
+
+    # Only allow /next_step when a task is active and previous action was executed
+    if current_stage not in ("EXECUTE", "DONE"):
+        return JSONResponse(
+            {"error": f"No active task to continue (stage={current_stage}). Use /task to start."},
+            status_code=409,
+        )
+
+    if current_stage == "DONE":
+        return JSONResponse({"status": "done", "message": "Task already completed"})
+
+    if current_step >= max_steps:
+        _safe_state_update({"stage": "DONE"})
+        return JSONResponse({"status": "done", "message": "Max steps reached"})
+
+    if not task:
+        return JSONResponse({"error": "No task context. Start a task with /task first."}, status_code=400)
+
+    t = threading.Thread(
+        target=_next_step_background,
+        args=(ext_dom_snapshot, ext_screenshot_b64, task, current_step),
+        daemon=True,
+    )
+    t.start()
+    return JSONResponse({"status": "processing", "step": current_step})
 
 
 @app.get("/preview")
@@ -394,10 +691,9 @@ async def get_preview() -> JSONResponse:
     if preview is None:
         return JSONResponse({"sanitized_text": None, "masked_image_b64": None, "redactions": []})
 
-    # Ensure we only return safe fields — strip any raw content defensively
     safe_preview = {
         "sanitized_text": preview.get("sanitized_text"),
-        "masked_image_b64": preview.get("masked_image_b64"),  # Already masked by pipeline
+        "masked_image_b64": preview.get("masked_image_b64"),
         "redactions": [
             {
                 "category": r.get("category", "UNKNOWN"),
@@ -408,6 +704,13 @@ async def get_preview() -> JSONResponse:
         ],
     }
     return JSONResponse(safe_preview)
+
+
+@app.get("/raw_preview")
+async def raw_preview() -> JSONResponse:
+    """Serve the raw (pre-redaction) screenshot for the dashboard left pane."""
+    raw_b64 = _raw_store.get("raw_screenshot_b64")
+    return JSONResponse({"raw_screenshot_b64": raw_b64})
 
 
 @app.post("/approve")
@@ -456,7 +759,6 @@ async def eval_results() -> JSONResponse:
         running = _state.get("eval_running", False)
 
     if results is None:
-        # Try to load from disk if available
         try:
             results_path = _REPO_ROOT / "eval" / "results.json"
             if results_path.exists():
