@@ -469,22 +469,17 @@ def append_baseline_markdown(results: dict[str, Any], md_path: Path = DOCS_EVAL_
     comparisons = results["comparisons"]
 
     md = [
-        "## 10. Privacy / Utility Baseline Comparison",
+        "## 10. Privacy Baseline Comparison (Egress Leakage Evaluation)",
         "",
         (
-            "Empirical side-by-side comparison of **PrivacyLens Sanitized Execution** "
-            "vs. an **Unsafe Raw Baseline** (sanitization bypassed, audit-only gate) "
-            "across all 5 core browser task scenarios."
+            "Empirical side-by-side privacy measurement comparing "
+            "**PrivacyLens Sanitized Execution** vs. an **Unsafe Raw Baseline** "
+            "(sanitization bypassed, audit-only gate) evaluating ground-truth "
+            "credentials and canary tokens leaving the local environment."
         ),
         "",
-        "| Metric | PrivacyLens Sanitized | Unsafe Raw Baseline | Impact |",
+        "| Metric | PrivacyLens Sanitized | Unsafe Raw Baseline | Privacy Protection |",
         "| :--- | :---: | :---: | :---: |",
-        (
-            f"| **Task Success Rate** | "
-            f"**{overall['sanitized_success_rate'] * 100:.1f}%** | "
-            f"**{overall['raw_success_rate'] * 100:.1f}%** | "
-            f"**Equivalent Utility (0% loss)** |"
-        ),
         (
             f"| **Sensitive Values Leaked to LLM** | "
             f"**{overall['sanitized_sensitive_leaks']}** | "
@@ -504,13 +499,13 @@ def append_baseline_markdown(results: dict[str, Any], md_path: Path = DOCS_EVAL_
             "Fail-Closed Active |"
         ),
         "",
-        "### Per-Scenario Privacy & Utility Breakdown",
+        "### Per-Scenario Privacy Breakdown",
         "",
         (
             "| Scenario | Page | GT Sensitive Items | Sanitized Leaks | "
-            "Raw Baseline Leaks | Sanitized Success | Raw Success |"
+            "Raw Baseline Leaks | Privacy Result |"
         ),
-        "| :--- | :--- | :---: | :---: | :---: | :---: | :---: |",
+        "| :--- | :--- | :---: | :---: | :---: | :---: |",
     ]
 
     for c in comparisons:
@@ -519,11 +514,10 @@ def append_baseline_markdown(results: dict[str, Any], md_path: Path = DOCS_EVAL_
         gt_count = c["ground_truth_sensitive_count"]
         san_leaks = c["sanitized"]["sensitive_values_leaked"]
         raw_leaks = c["raw"]["sensitive_values_leaked"]
-        san_ok = "PASS" if c["sanitized"]["task_success"] else "FAIL"
-        raw_ok = "PASS" if c["raw"]["task_success"] else "FAIL"
+        priv_res = "PASS (0 Leaks)" if san_leaks == 0 else "FAIL"
         md.append(
             f"| `{sc_id}` | `{page}` | {gt_count} | **{san_leaks}** | "
-            f"**{raw_leaks}** | {san_ok} | {raw_ok} |"
+            f"**{raw_leaks}** | {priv_res} |"
         )
 
     md.extend(

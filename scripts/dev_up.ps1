@@ -42,3 +42,4 @@ Write-Host "API Process ID: $($apiProcess.Id)" -ForegroundColor Gray
 Write-Host "Testsite Process ID: $($testsiteProcess.Id)" -ForegroundColor Gray
 Write-Host "To terminate background processes when done:" -ForegroundColor Gray
 Write-Host "  Stop-Process -Id $($apiProcess.Id), $($testsiteProcess.Id)" -ForegroundColor Gray
+

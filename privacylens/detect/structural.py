@@ -95,11 +95,14 @@ class StructuralDetector(Detector):
             aria_label = _get_field(el, "aria_label", "").lower()
             bbox = getattr(el, "bbox", None) if hasattr(el, "bbox") else el.get("bbox")
 
-            # Check whether element is an input control
+            # Check whether element is an input control (excluding buttons and submit controls)
+            has_input_role = (
+                (el.get("role") in ("textbox", "combobox")) if isinstance(el, dict) else False
+            )
             is_input_element = (
-                tag in ("input", "textarea", "select")
-                or bool(input_type)
-                or (el.get("role") in ("textbox", "combobox") if isinstance(el, dict) else False)
+                (tag in ("input", "textarea", "select") or bool(input_type) or has_input_role)
+                and tag not in ("button", "a")
+                and input_type not in ("button", "submit", "reset")
             )
 
             combined_desc = f"{el_id or ''} {name} {placeholder} {label} {aria_label}".lower()

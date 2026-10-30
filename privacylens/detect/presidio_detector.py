@@ -63,6 +63,8 @@ _UI_NON_NAME_WORDS = {
     "DEPARTMENT",
     "SYSTEM",
     "RECORDS",
+    "TICKET",
+    "TIC",
     "VERIFIED",
     "CLIENT",
     "COMPLIANCE",
@@ -246,7 +248,7 @@ class PresidioDetector(Detector):
         for res in results:
             span_val = text[res.start : res.end].strip()
             # Ignore all-caps UI words, identifiers, or known UI non-name categories
-            raw_subwords = re.split(r"[\s_]+", span_val.upper())
+            raw_subwords = re.split(r"[\s_\-]+", span_val.upper())
             subwords = [w.strip(".,;:()[]{}'\"") for w in raw_subwords if w]
             if any(w in _UI_NON_NAME_WORDS for w in subwords):
                 continue
@@ -265,6 +267,15 @@ class PresidioDetector(Detector):
                     target_type = "ADDRESS"
                 else:
                     target_type = "NAME"
+            elif res.entity_type == "LOCATION":
+                # Filter out reference codes/IDs containing digits without address keywords
+                if any(c.isdigit() for c in span_val) and not re.search(
+                    r"\b(?:road|street|avenue|lane|drive|blvd|marg|nagar|way|highway|park|suite|apt|floor)\b",
+                    span_val,
+                    re.IGNORECASE,
+                ):
+                    continue
+                target_type = "ADDRESS"
             else:
                 target_type = "ADDRESS"
             findings.append(

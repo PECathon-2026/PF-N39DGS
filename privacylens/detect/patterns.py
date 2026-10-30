@@ -442,7 +442,12 @@ class PatternDetector(Detector):
             try:
                 ip_obj = ipaddress.IPv4Address(val)
                 parts = val.split(".")
-                if len(parts) == 4 and not ip_obj.is_multicast:
+                if (
+                    len(parts) == 4
+                    and not ip_obj.is_multicast
+                    and not ip_obj.is_loopback
+                    and not ip_obj.is_unspecified
+                ):
                     findings.append(
                         Finding(
                             type="IP",
