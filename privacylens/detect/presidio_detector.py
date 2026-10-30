@@ -119,6 +119,15 @@ _UI_NON_NAME_WORDS = {
     "PORTAL",
     "DEVELOPER",
     "PRIMARY",
+    "BANGALORE",
+    "MUMBAI",
+    "DELHI",
+    "CHENNAI",
+    "HYDERABAD",
+    "KOLKATA",
+    "PUNE",
+    "SPANS",
+    "SPLIT",
 }
 
 _SINGLETON_ANALYZER: AnalyzerEngine | None = None
@@ -230,7 +239,7 @@ class PresidioDetector(Detector):
             text=text,
             language="en",
             score_threshold=threshold,
-            entities=["PERSON", "LOCATION"],
+            entities=["PERSON", "LOCATION", "NRP"],
         )
 
         findings: list[Finding] = []
@@ -242,7 +251,21 @@ class PresidioDetector(Detector):
                 continue
             if span_val.isupper() and len(span_val) <= 4:
                 continue
-            target_type = "NAME" if res.entity_type == "PERSON" else "ADDRESS"
+            if res.entity_type == "NRP":
+                if not re.match(r"^[A-Z][a-z]+ [A-Z][a-z]+$", span_val):
+                    continue
+                target_type = "NAME"
+            elif res.entity_type == "PERSON":
+                if re.search(
+                    r"\b(?:road|street|avenue|lane|drive|blvd|marg|nagar|way|highway|park)\b",
+                    span_val,
+                    re.IGNORECASE,
+                ):
+                    target_type = "ADDRESS"
+                else:
+                    target_type = "NAME"
+            else:
+                target_type = "ADDRESS"
             findings.append(
                 Finding(
                     type=target_type,

@@ -129,6 +129,7 @@ def _matches_item(
     finding: Finding,
     elem_text: str = "",
     target_id: str = "",
+    elements: list[ElementSnapshot] | None = None,
 ) -> bool:
     """Evaluate whether a finding strictly matches a ground truth target item."""
     expected_type = gt_item.get("type", "")
@@ -138,7 +139,13 @@ def _matches_item(
     if not finding.element_id:
         return False
     if finding.element_id != target_elem_id:
-        return False
+        elem = (
+            next((e for e in elements if e.element_id == finding.element_id), None)
+            if elements
+            else None
+        )
+        if not elem or target_elem_id not in (elem.ancestor_ids or []):
+            return False
 
     # 2. Type compatibility
     allowed_types = TYPE_EQUIVALENCIES.get(expected_type, {expected_type})
@@ -212,7 +219,9 @@ def evaluate_page(
         for f_idx, f in enumerate(findings):
             if f_idx in matched_finding_indices:
                 continue
-            if _matches_item(s_item, f, elem_text=elem_text, target_id=target_id):
+            if _matches_item(
+                s_item, f, elem_text=elem_text, target_id=target_id, elements=snapshot.elements
+            ):
                 matched_finding_indices.add(f_idx)
                 matched_gt_indices.add(gt_idx)
                 break

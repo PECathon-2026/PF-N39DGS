@@ -31,6 +31,7 @@ class ElementSnapshot:
     placeholder: str | None = None
     visible_text: str | None = None
     input_value: str | None = None
+    href: str | None = None
     bbox: tuple[float, float, float, float] | None = None
     parent_id: str | None = None
     ancestor_ids: list[str] = field(default_factory=list)
@@ -85,21 +86,33 @@ _DOM_EXTRACT_JS = """
 
     function collectAllElements(root) {
         const result = [];
-        const walker = (node) => {
+        const walker = (node, currentFrameId, currentShadowId) => {
             if (!node || node.nodeType !== 1) return;
+            node._plFrameHost = currentFrameId;
+            node._plShadowHost = currentShadowId;
             result.push(node);
             if (node.shadowRoot) {
+                let sHostId = node.id || node.getAttribute('data-pl-id');
+                if (!sHostId) {
+                    sHostId = 'pl-elem-' + (idCounter++);
+                    node.setAttribute('data-pl-id', sHostId);
+                }
                 for (const child of node.shadowRoot.children) {
-                    walker(child);
+                    walker(child, currentFrameId, sHostId);
                 }
             }
             if (node.tagName === 'IFRAME') {
                 try {
+                    let fHostId = node.id || node.getAttribute('data-pl-id');
+                    if (!fHostId) {
+                        fHostId = 'pl-elem-' + (idCounter++);
+                        node.setAttribute('data-pl-id', fHostId);
+                    }
                     const winDoc = node.contentWindow && node.contentWindow.document;
                     const doc = node.contentDocument || winDoc;
                     if (doc && doc.body) {
                         for (const child of doc.body.children) {
-                            walker(child);
+                            walker(child, fHostId, currentShadowId);
                         }
                     }
                 } catch (e) {
@@ -107,11 +120,22 @@ _DOM_EXTRACT_JS = """
                 }
             }
             for (const child of node.children) {
-                walker(child);
+                walker(child, currentFrameId, currentShadowId);
             }
         };
-        walker(root);
+        walker(root, null, null);
         return result;
+    }
+
+    const inlineTextTags = ['SPAN', 'B', 'I', 'STRONG', 'EM', 'SMALL', 'CODE', 'SUB', 'SUP', 'A'];
+    function isInlineTextWrapper(node) {
+        if (!node || node.tagName !== 'SPAN') return false;
+        if (node.children.length === 0) return false;
+        for (const c of node.children) {
+            if (!inlineTextTags.includes(c.tagName.toUpperCase())) return false;
+            if (c.children.length > 0) return false;
+        }
+        return true;
     }
 
     const all = collectAllElements(document.documentElement);
@@ -119,13 +143,20 @@ _DOM_EXTRACT_JS = """
         const tag = el.tagName.toUpperCase();
         if (ignoredTags.includes(tag)) continue;
 
+        const isWrapper = isInlineTextWrapper(el);
+        const isChildOfWrapper = el.parentElement && isInlineTextWrapper(el.parentElement);
+        if (isChildOfWrapper) continue;
+
         const isInteractive = interactiveTags.includes(tag) ||
             el.getAttribute('role') === 'button' ||
             el.hasAttribute('onclick');
 
-        const hasChildren = el.children.length > 0;
+        const hasChildren = el.children.length > 0 && !isWrapper;
         const isContainer = containerTags.includes(tag) || hasChildren;
-        const rawText = (el.innerText || '').trim();
+        const elText = (el.innerText !== undefined && el.innerText !== '')
+            ? el.innerText
+            : (el.textContent || '');
+        const rawText = elText.trim();
         const hasText = rawText.length > 0;
         const isLeafText = !isContainer && hasText;
 
@@ -158,6 +189,14 @@ _DOM_EXTRACT_JS = """
                 }
                 ancestorIds.push(pid);
                 p = p.parentElement;
+            }
+            if (el._plShadowHost && !ancestorIds.includes(el._plShadowHost)) {
+                ancestorIds.push(el._plShadowHost);
+                if (!parentId) parentId = el._plShadowHost;
+            }
+            if (el._plFrameHost && !ancestorIds.includes(el._plFrameHost)) {
+                ancestorIds.push(el._plFrameHost);
+                if (!parentId) parentId = el._plFrameHost;
             }
 
             const rect = el.getBoundingClientRect();
@@ -192,6 +231,9 @@ _DOM_EXTRACT_JS = """
                 placeholder: el.placeholder || el.getAttribute('placeholder') || null,
                 visible_text: visibleText,
                 input_value: inputValue,
+                href: (tag === 'A' || el.hasAttribute('href'))
+                    ? (el.href || el.getAttribute('href') || null)
+                    : null,
                 bbox: bbox,
                 parent_id: parentId,
                 ancestor_ids: ancestorIds,
@@ -352,6 +394,7 @@ async def capture_async(
                     placeholder=raw.get("placeholder"),
                     visible_text=raw.get("visible_text"),
                     input_value=raw.get("input_value"),
+                    href=raw.get("href"),
                     bbox=bbox,
                     parent_id=raw.get("parent_id"),
                     ancestor_ids=raw.get("ancestor_ids", []),

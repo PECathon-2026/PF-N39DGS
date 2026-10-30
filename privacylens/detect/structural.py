@@ -27,7 +27,7 @@ _HINT_PATTERNS = {
     "TOKEN": re.compile(r"\b(?:session[-_]?token|auth[-_]?token)\b", re.IGNORECASE),
     "PASSWORD": re.compile(r"\b(?:password|passwd|pwd)\b", re.IGNORECASE),
     "ADDRESS": re.compile(
-        r"\b(?:street[-_]?address|shipping[-_]?address|billing[-_]?address)\b",
+        r"\b(?:street|shipping|billing|invoice|office|home|delivery|user|company)?[-_]?address\b",
         re.IGNORECASE,
     ),
 }

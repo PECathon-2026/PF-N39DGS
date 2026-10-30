@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 # Precompiled regular expressions
 _EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _PAN_RE = re.compile(r"\b[A-Za-z]{5}[0-9]{4}[A-Za-z]\b")
-_AADHAAR_CANDIDATE_RE = re.compile(r"(?<!\d)[2-9]\d{3}[-\s]?\d{4}[-\s]?\d{4}(?!\d)")
+_AADHAAR_CANDIDATE_RE = re.compile(
+    r"(?<![a-zA-Z0-9_])[2-9]\d{3}[-\s]?\d{4}[-\s]?\d{4}(?![a-zA-Z0-9_])"
+)
 _CARD_CANDIDATE_RE = re.compile(r"(?<!\d)(?:\d[-\s]?){13,19}(?!\d)")
 
 _SK_KEY_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")
@@ -76,7 +78,9 @@ class PatternDetector(Detector):
             findings: list[Finding] = []
             for elem in context.elements:
                 target_text = elem.input_value if elem.input_value else elem.visible_text
-                if not target_text:
+                if not target_text and elem.placeholder:
+                    target_text = elem.placeholder
+                if not target_text and not (elem.tag == "a" and getattr(elem, "href", None)):
                     continue
                 # Add contextual hints from element label, name, placeholder
                 context_hint = " ".join(
@@ -91,13 +95,22 @@ class PatternDetector(Detector):
                         ],
                     )
                 )
-                elem_findings = self.detect_text(
-                    target_text,
-                    element_id=elem.element_id,
-                    context_hint=context_hint,
-                    bbox=elem.bbox,
-                )
-                findings.extend(elem_findings)
+                if target_text:
+                    elem_findings = self.detect_text(
+                        target_text,
+                        element_id=elem.element_id,
+                        context_hint=context_hint,
+                        bbox=elem.bbox,
+                    )
+                    findings.extend(elem_findings)
+                if elem.tag == "a" and getattr(elem, "href", None):
+                    href_findings = self.detect_text(
+                        elem.href,
+                        element_id=elem.element_id,
+                        context_hint=context_hint,
+                        bbox=elem.bbox,
+                    )
+                    findings.extend(href_findings)
             return findings
 
         if hasattr(context, "visible_text") or hasattr(context, "input_value"):

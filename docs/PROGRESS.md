@@ -81,8 +81,20 @@
   - **Overall Success Rate**: **5 / 5 (100.0%)**; average duration: **12.38s** per scenario; total LLM calls: **10**; zero timeouts; zero policy violations.
   - **Adversarial Mock Leakage Audit**: 3 outbound requests inspected; **0 raw secrets leaked, 0 canaries leaked**.
 
+- **Adversarial Security & Defences Suite (`eval/run_adversarial_eval.py`)**:
+  - Built 7 synthetic adversarial attack test pages (`testsite/adversarial/`): visible prompt injection, hidden DOM injection, cross-origin exfiltration, pre-approved action deception, unauthorized host exfil links, sensitive digit reconstruction, and fake system chat bubbles.
+  - Built deterministic attack-success oracles across live and scripted models: **0 / 7 successful attacks (0.0% attack success rate, 100% defense)**.
+  - Documented stopping layers in `docs/SECURITY.md` and `docs/EVAL_RESULTS.md`.
+
+- **Fresh Holdout 2 Benchmark Suite (`testsite/holdout2/`, `eval/ground_truth_holdout2.json`)**:
+  - Built 5 unseen, complex test pages: `invoice.html` (tax tables, mixed PII/PAN), `profile_dynamic.html` (JS dynamic DOM, split sibling spans), `contenteditable_form.html` (rich editor, placeholder secrets), `shadow_iframe.html` (cross-frame `srcdoc`, open Shadow DOM), and `svg_querystring.html` (SVG `<text>` cards, query string API keys).
+  - Committed pages + ground truth before running detection (`60c3a34`).
+  - Recorded first untuned run: Precision 52.6%, Recall 47.6%, 11 misses.
+  - Diagnosed root causes and applied generic engine improvements (SVG textContent, frame/shadow ancestry propagation, word-bounded Verhoeff digits, placeholder scanning, link query string scanning, inline span aggregation, street address recognition).
+  - Re-measured after fixes: Precision **86.96%**, Recall **95.24%** (20/21 TP, 1 miss), Canaries **4/5**, Sanitization leaks: 1 (only untyped non-dictionary name), Zero canary leaks, Zero OCR leaks. Dev and Holdout 1 benchmarks verified with zero regressions.
+
 ## In progress
-- Productization, API service endpoints, and documentation packaging.
+- Part 3: Privacy/Utility Baseline comparison (`eval/run_baseline_eval.py`).
 
 ## Next
 - Fast-API microservice endpoints for remote sanitization and proxy agent execution.
