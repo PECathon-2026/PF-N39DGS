@@ -84,6 +84,13 @@ class HealthResponse(BaseModel):
     version: str = __version__
 
 
+class SanitizeRequest(BaseModel):
+    """Legacy request schema for text sanitization."""
+
+    text: str
+    context: dict[str, Any] | None = None
+
+
 class SnapshotSanitizeRequest(BaseModel):
     url: str
     snapshot: dict[str, Any]
@@ -152,6 +159,18 @@ def get_health() -> HealthResponse:
     return HealthResponse(status="ok", version=__version__)
 
 
+@app.post("/v1/sanitize", status_code=status.HTTP_501_NOT_IMPLEMENTED)
+def sanitize_data(req: SanitizeRequest) -> None:
+    """Legacy stub endpoint returning 501 Not Implemented."""
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail=(
+            "Text sanitization endpoint is not yet implemented directly; "
+            "use /v1/sanitize/snapshot"
+        ),
+    )
+
+
 @app.post("/v1/sanitize/snapshot")
 def sanitize_snapshot_endpoint(
     req: SnapshotSanitizeRequest,
@@ -168,16 +187,18 @@ def sanitize_snapshot_endpoint(
                 element_id=el.get("element_id", ""),
                 tag=el.get("tag", "div"),
                 input_type=el.get("input_type"),
-                input_value=el.get("input_value"),
-                placeholder=el.get("placeholder"),
+                name=el.get("name"),
+                autocomplete=el.get("autocomplete"),
                 aria_label=el.get("aria_label"),
-                title=el.get("title"),
+                associated_label_text=el.get("associated_label_text"),
+                placeholder=el.get("placeholder"),
                 visible_text=el.get("visible_text", ""),
-                role=el.get("role"),
-                is_interactive=el.get("is_interactive", False),
-                bbox=tuple(el.get("bbox", (0, 0, 0, 0))),  # type: ignore[arg-type]
-                is_visible=el.get("is_visible", True),
+                input_value=el.get("input_value"),
+                href=el.get("href"),
+                bbox=tuple(el.get("bbox", (0.0, 0.0, 0.0, 0.0))),  # type: ignore[arg-type]
+                parent_id=el.get("parent_id"),
                 ancestor_ids=el.get("ancestor_ids", []),
+                is_leaf=el.get("is_leaf", True),
             )
         )
 
@@ -425,9 +446,9 @@ def gate_test_endpoint(
         ),
         "leaky_split_json": json.dumps({"bin": "467633", "mid": "6067", "last": "708530"}),
         "leaky_zero_width": (
-            "T\u200Br\u200B0\u200Bu\u200Bb\u200B4\u200Bd\u200Bo\u200Br\u200B&\u200B3\u200B#"
+            "4\u200B6\u200B7\u200B6\u200B3\u200B3\u200B6\u200B0\u200B6\u200B7\u200B7\u200B0\u200B8\u200B5\u200B3\u200B0"
         ),
-        "leaky_image": "image_canary_placeholder",
+        "leaky_image": "Demo image frame containing CANARY-image-leak-token",
     }
 
     sample_text = payload_map[req.name]

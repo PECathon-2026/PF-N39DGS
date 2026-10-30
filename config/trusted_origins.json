@@ -1,0 +1,9 @@
+{
+  "trusted": [
+    {
+      "origin": "http://127.0.0.1:8765",
+      "secret_name": "test_secret",
+      "allow": true
+    }
+  ]
+}

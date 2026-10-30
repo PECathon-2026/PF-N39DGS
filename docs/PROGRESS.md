@@ -102,19 +102,61 @@
     - **Canary Tokens Leaked**: **0** under PrivacyLens vs **5** under raw baseline (**100.0% protection**).
   - Safety unit tests in `tests/test_baseline_safety.py` verify that default mode strictly stays enforce and normal runs cannot enable unsafe baseline.
 
+- **Realistic Multi-Step Scenarios & Secret Injection (`eval/scenarios.yaml`, `testsite/`)**:
+  - All 5 scenarios start on `?empty=1` empty forms requiring active typing of user credentials, payment cards, CVVs, and API keys.
+  - Form field state oracle verification (`eval/run_agent_eval.py`) validates actual DOM values post-submission.
+  - ScriptedLLM multi-step execution: 10/10 scenarios passed (5 standard + 5 adversarial), 20 mock LLM calls recorded, 0 raw secrets leaked, 0 canaries leaked.
+  - Baseline comparison: 0 leaks under PrivacyLens vs 25 leaks under raw baseline (100% utility).
+
+- **LLM Resilience, Fallback & Budgeting (`privacylens/agent/llm.py`, `config.yaml`)**:
+  - Multi-key rotation (`api_key_envs`) and model fallback cascade (`fallback_models`).
+  - Strict rate limiting (`llm.rpm_limit = 4`, minimum 15s interval) and run cap (`llm.max_calls_per_run = 14`).
+  - Budget tracker storing counts only in `logs/llm_budget.json`, never exposing key values.
+  - Tested in `tests/test_llm_resilience.py`.
+
+- **Detector Improvements & Holdout 2 Evaluation**:
+  - Snake_case and index-suffixed identifier filtering (`_is_identifier_not_key`) and Presidio subword splitting.
+  - Contextual name prefix rule (`_NAME_CONTEXT_PREFIX_RE`) and capture-level context label inheritance.
+  - Canary ancestor ID matching in `eval/run_eval.py`.
+  - Holdout 2 Detection: Precision 84.0%, Recall **100.0%** (21/21 TP, 0 misses), Canaries 5/5. Dev Detection: Precision 86.7%, Recall **100.0%**, Canaries 5/5. Holdout 1: Precision 92.0%, Recall 92.0% (100% on DOM).
+
+- **BrowserDriver Abstraction (`privacylens/agent/driver.py`)**:
+  - `BrowserDriver` protocol unifying browser automation across `PlaywrightDriver` and `ExtensionDriver`.
+  - `ExtensionDriver` with 20s fail-closed command queue (`_dispatch_command`), disconnect fail-closed state tracking, and server-side secret resolution.
+  - Local origin trust management in `config/trusted_origins.json`.
+  - Updated `sanitize_page()` and `run_task()` to accept any `BrowserDriver`.
+
+- **Companion Fast-API Service (`privacylens/api/app.py`, `privacylens/api/auth.py`)**:
+  - Strictly binds to `127.0.0.1:8000` (loopback only, no 0.0.0.0).
+  - Pairing token security: generated to `.pl_token` (restricted permissions), `X-PL-Token` constant-time verification.
+  - DNS-rebinding defence: aborts non-localhost `Host` headers with 400 Bad Request.
+  - Strict CORS: permits `chrome-extension://*` and `moz-extension://*` only.
+  - CLI command: `privacylens token --copy` copies pairing token to clipboard without printing.
+  - 15 production endpoints: `/v1/health`, `/v1/sanitize/snapshot`, `/v1/sanitize/screenshot`, `/v1/agent/runs`, `/v1/agent/runs/{id}/events` (SSE), `/v1/agent/runs/{id}/approve`, `/v1/agent/runs/{id}/stop`, `/v1/ext/poll`, `/v1/ext/result`, `/v1/gate/test`, `/v1/results/summary`, `/v1/receipt/{id}`, `/v1/secrets/profile` (memory only, GET names only), `/v1/trust`, `/v1/policy/site`.
+  - Universal safety scrub (`_safety_scrub`) on all outgoing JSON responses and SSE events.
+
+- **Companion Test Suite, Docs & Dev Scripts (`tests/test_api_companion.py`, `docs/API.md`, `scripts/dev_up.ps1`)**:
+  - Comprehensive 15-test suite in `tests/test_api_companion.py` covering token auth, DNS rebinding, CORS, snapshot/screenshot sanitization, gate blocking of 5 attack classes, receipts, safety scrub, fake extension coroutines, and slow Playwright driver delegation test.
+  - `docs/API.md`: Full OpenAPI documentation, threat model, security posture, extension implementation guides (background.js, content.js).
+  - `scripts/dev_up.ps1`: Automated startup for companion API and testsite, token clipboard copy, and dev page launching.
+
 ## In progress
-- Production deployment configuration, service packaging, and documentation.
+- Production deployment configuration and containerization.
 
 ## Next
-- Fast-API microservice endpoints for remote sanitization and proxy agent execution.
-- Production deployment configuration and containerization.
+- Production deployment configuration, package publishing, and edge deployment.
 
 ## Decisions
 - **Strict Boundary Separation**: LLM receives only sanitized DOM representations and surrogate tokens (`[SECRET:...]` or `[REDACTED_...]`). Resolution to actual credentials occurs locally within `ActionExecutor` on allowed origins.
 - **Fail-Closed Gate Enforcement**: Every network byte transmitted to LLM endpoints must pass through `EgressGate`. Outbound text is normalized across 6 dimensions and cross-referenced against active Vault tokens and canary patterns.
 - **High-Risk Human Gate**: Actions involving credential submission or irreversible state changes require human policy approval before local browser execution.
+- **Fail-Closed BrowserDriver**: If an extension stops responding or disconnects for >20s, the companion driver fails closed, invalidating the session and refusing to dispatch pending commands.
 
 ## Measured results
+- **Companion Test Suite**: 15 tests passing, including fake extension coroutines and slow Playwright integration.
+- **Unit Test Suite**: 118 unit tests passing in pytest (0 failures).
+- **Check Suite (`scripts/check.ps1`)**: PASS across Secrets Check, Ruff Linter, Pytest Unit Tests, and Runtime Smoke Check.
+- **Secrets Audit**: 0 leaks detected across commit history, repository files, and logs.
 - **Live Agent Evaluation Benchmark (`eval/results/agent_results.json`)**:
   - **Scenario Completion Rate**: **5 / 5 (100.0%)**
   - **Total Execution Latency**: **62.12s** across 5 full multi-step tasks.
@@ -122,13 +164,12 @@
   - **Total LLM Invocations**: **10 calls** (2 calls/scenario average).
   - **End-State DOM Verification**: **5 / 5 (100.0%)**.
   - **Adversarial Outbound Leak Audit**: **0 / 3 raw secrets leaked (0.0%)**, **0 / 3 canaries leaked (0.0%)**.
-- **Sanitization & Detection Engine**:
-  - **Dev Detection**: Precision **96.3%**, Recall **100.0%**, Canaries **5/5**.
-  - **Holdout Detection**: DOM-visible Recall **100.0%** (23/23), Combined DOM+OCR Recall **100.0%** (25/25), Canaries **5/5**.
-  - **Adversarial Gate Positive Control**: **100.0% block rate (954/954)** across all 9 obfuscation classes.
-  - **Text & Pixel Leakage**: **0 text leaks**, **0 canary leaks**, **100.0% pixel masking**.
-- **Unit Test Suite**: 95 unit tests passing in < 8s.
-- **Secrets Audit**: 0 leaks detected across commit history and repository files.
+- **Detection Benchmark**:
+  - **Dev Detection**: Precision **86.7%**, Recall **100.0%** (26/26 TP), Canaries **5/5**.
+  - **Holdout 1**: Precision **92.0%**, Recall **92.0%** (23/25, 100% on DOM), Canaries **5/5**.
+  - **Holdout 2**: Precision **84.0%**, Recall **100.0%** (21/21 TP, 0 misses), Canaries **5/5**.
+- **Adversarial Gate Positive Control**: **100.0% block rate (954/954)** across all 9 obfuscation classes.
+- **Text & Pixel Leakage**: **0 text leaks**, **0 canary leaks**, **100.0% pixel masking**.
 
 ## Known issues
 - Windows standard sandbox restricts loopback TCP `socket.socketpair()`; subprocess server commands and Playwright sessions run using explicit local bindings.

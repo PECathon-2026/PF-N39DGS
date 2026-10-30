@@ -77,6 +77,18 @@ def load_trusted_origins(path: Path = DEFAULT_TRUSTED_ORIGINS_FILE) -> set[tuple
         return set()
 
 
+def is_origin_trusted(
+    origin: str,
+    secret_name: str,
+    path: Path = DEFAULT_TRUSTED_ORIGINS_FILE,
+) -> bool:
+    """Check if (origin, secret_name) is explicitly trusted."""
+    trusted = load_trusted_origins(path)
+    norm_origin = origin.lower().strip()
+    norm_sec = secret_name.lower().strip()
+    return (norm_origin, norm_sec) in trusted or (norm_origin, "*") in trusted
+
+
 def record_trusted_origin(
     origin: str,
     secret_name: str,
@@ -180,12 +192,10 @@ class PlaywrightDriver:
         want_screenshot: bool = True,
     ) -> PageSnapshot:
         url = getattr(self.page, "url", "") or "http://127.0.0.1:8765"
-        tess_cmd = getattr(config, "tesseract_cmd", None) if config else None
         return await capture_async(
             url=url,
             page=self.page,
             capture_screenshot=want_screenshot,
-            tesseract_cmd=tess_cmd,
         )
 
     async def execute(
@@ -354,16 +364,18 @@ class ExtensionDriver:
                     element_id=el.get("element_id", ""),
                     tag=el.get("tag", "div"),
                     input_type=el.get("input_type"),
-                    input_value=el.get("input_value"),
-                    placeholder=el.get("placeholder"),
+                    name=el.get("name"),
+                    autocomplete=el.get("autocomplete"),
                     aria_label=el.get("aria_label"),
-                    title=el.get("title"),
+                    associated_label_text=el.get("associated_label_text"),
+                    placeholder=el.get("placeholder"),
                     visible_text=el.get("visible_text", ""),
-                    role=el.get("role"),
-                    is_interactive=el.get("is_interactive", False),
-                    bbox=tuple(el.get("bbox", (0, 0, 0, 0))),  # type: ignore[arg-type]
-                    is_visible=el.get("is_visible", True),
+                    input_value=el.get("input_value"),
+                    href=el.get("href"),
+                    bbox=tuple(el.get("bbox", (0.0, 0.0, 0.0, 0.0))),  # type: ignore[arg-type]
+                    parent_id=el.get("parent_id"),
                     ancestor_ids=el.get("ancestor_ids", []),
+                    is_leaf=el.get("is_leaf", True),
                 )
             )
 
