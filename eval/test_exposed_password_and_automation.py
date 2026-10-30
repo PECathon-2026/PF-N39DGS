@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 import pytest
@@ -9,6 +10,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.detect import dom_layer, regex_layer, fusion
 from core.sanitize import sanitize_dom, sanitize_text
 from core.agent.client import _local_heuristic_planner
+from core.agent.validator import Action, validate_action
+from core.agent.executor import execute_action
 from core.vault import vault
 
 
@@ -93,7 +96,6 @@ def test_login_automation_heuristic():
         ]
     }
     action0_raw = _local_heuristic_planner("login", snap_step0, step=0)
-    import json
     act0 = json.loads(action0_raw)
     assert act0["action_type"] == "type"
     assert act0["target"] == "el_0"
@@ -127,10 +129,47 @@ def test_login_automation_heuristic():
     assert act2["target"] == "el_2"
 
 
+def test_login_automation_various_phrases():
+    """Verify that different natural phrasing triggers the login automation flow."""
+    snap = {
+        "elements": [
+            {"el_id": "el_0", "tag": "input", "type": "email", "name": "email", "value": ""},
+            {"el_id": "el_1", "tag": "input", "type": "password", "name": "password", "value": ""},
+            {"el_id": "el_2", "tag": "button", "type": "submit", "text": "Log In"},
+        ]
+    }
+    phrases = ["log in", "log in to my account", "signin", "sign in", "sign-in", "enter credentials", "authenticate"]
+    for phrase in phrases:
+        raw = _local_heuristic_planner(phrase, snap, step=0)
+        action = json.loads(raw)
+        assert action["action_type"] == "type", f"Failed for phrase: '{phrase}'"
+        assert action["target"] == "el_0"
+        assert "vault:" in action["value"]
+
+
+def test_navigate_action_validation():
+    """Verify that navigate action is allowed and validates URL safely."""
+    snap = {"elements": []}
+    
+    # Valid navigations
+    v1 = validate_action(Action(action_type="navigate", value="https://example.com"), snap)
+    assert v1.valid is True
+    
+    v2 = validate_action(Action(action_type="navigate", value="http://localhost:8000/test"), snap)
+    assert v2.valid is True
+
+    # Invalid navigation: javascript URI
+    v3 = validate_action(Action(action_type="navigate", value="javascript:alert(1)"), snap)
+    assert v3.valid is False
+
+    # Invalid navigation: relative or malformed
+    v4 = validate_action(Action(action_type="navigate", value="ftp://evil.com"), snap)
+    assert v4.valid is False
+
+
 def test_vault_symbolic_resolution():
     """Verify that both vault:PASSWORD and $VAULT:PASSWORD resolve locally."""
     vault.set_secret("PASSWORD", "SuperSecretPwd123")
     assert vault.resolve_value("vault:PASSWORD") == "SuperSecretPwd123"
     assert vault.resolve_value("$VAULT:PASSWORD") == "SuperSecretPwd123"
     assert vault.resolve_value("vault:password") == "SuperSecretPwd123"
-

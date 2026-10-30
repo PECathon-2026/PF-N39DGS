@@ -1,14 +1,19 @@
 /**
- * PrivacyLens — background.js (Manifest V3 Service Worker)
+ * PrivacyLens – background.js (Manifest V3 Service Worker)
  *
  * Orchestrates the full privacy pipeline by bridging the live browser tab
  * and the local PrivacyLens FastAPI backend (localhost:8000).
+ *
+ * Flow:
+ *   Step 0 → POST /task          (starts fresh task, returns next_action)
+ *   Steps 1+ → POST /next_step   (continues existing task, returns next_action)
+ *   After each next_action fires → POST /action_done → wait 1s → capture fresh DOM → POST /next_step
  */
 
 'use strict';
 
 const API_BASE = 'http://localhost:8000';
-const POLL_INTERVAL_MS = 1000;
+const POLL_INTERVAL_MS = 1200;   // slightly > 1s to avoid racing with next_step thread
 
 // ── State (in-memory, cleared on new task) ─────────────────────────────────
 
@@ -22,20 +27,25 @@ let _state = {
   lastStage:       'IDLE',
   pendingAction:   null,
   executingAction: false,
+  // Track the last next_action identity to avoid double-execution
+  lastNextActionType:   null,
+  lastNextActionTarget: null,
 };
 
 function resetState() {
   if (_state.pollTimer) clearInterval(_state.pollTimer);
   _state = {
-    tabId:           _state.tabId,
-    task:            '',
-    currentStep:     0,
-    maxSteps:        5,
-    polling:         false,
-    pollTimer:       null,
-    lastStage:       'IDLE',
-    pendingAction:   null,
-    executingAction: false,
+    tabId:                _state.tabId,
+    task:                 '',
+    currentStep:          0,
+    maxSteps:             5,
+    polling:              false,
+    pollTimer:            null,
+    lastStage:            'IDLE',
+    pendingAction:        null,
+    executingAction:      false,
+    lastNextActionType:   null,
+    lastNextActionTarget: null,
   };
 }
 
@@ -103,35 +113,15 @@ async function captureScreenshot(tabId) {
   });
 }
 
-// ── Task execution ─────────────────────────────────────────────────────────
+// ── Capture current tab state ──────────────────────────────────────────────
 
-async function runTask(tabId, task) {
-  resetState();
-  _state.tabId = tabId;
-  _state.task = task;
-  _state.currentStep = 0;
-
-  await triggerStep(tabId, task, 0);
-
-  _state.polling = true;
-  _state.pollTimer = setInterval(() => pollStatus(tabId), POLL_INTERVAL_MS);
-}
-
-async function triggerStep(tabId, task, stepIdx) {
-  await sendToPopup({ type: 'STATUS_UPDATE', stage: 'CAPTURE', step: stepIdx });
-
-  // 1. Capture DOM from the active tab
+async function captureCurrentState(tabId) {
   const domResp = await sendToContent(tabId, { type: 'CAPTURE_DOM' });
   if (!domResp || domResp.type !== 'DOM_CAPTURED') {
-    await sendToPopup({
-      type: 'ERROR',
-      message: 'DOM capture failed. Please refresh the page tab and try again.',
-    });
-    return false;
+    return null;
   }
   const domSnapshot = domResp.payload;
 
-  // 2. Take screenshot
   let screenshotB64 = null;
   try {
     screenshotB64 = await captureScreenshot(tabId);
@@ -139,38 +129,99 @@ async function triggerStep(tabId, task, stepIdx) {
     console.warn('[PrivacyLens] Screenshot failed:', err.message);
   }
 
-  await sendToPopup({ type: 'STATUS_UPDATE', stage: 'DETECT', step: stepIdx });
+  return { domSnapshot, screenshotB64 };
+}
 
-  // 3. POST to local PrivacyLens backend
+// ── Task execution ──────────────────────────────────────────────────────────
+
+async function runTask(tabId, task) {
+  resetState();
+  _state.tabId = tabId;
+  _state.task = task;
+  _state.currentStep = 0;
+
+  await sendToPopup({ type: 'STATUS_UPDATE', stage: 'CAPTURE', step: 0 });
+
+  const captured = await captureCurrentState(tabId);
+  if (!captured) {
+    await sendToPopup({ type: 'ERROR', message: 'DOM capture failed. Please refresh and try again.' });
+    return;
+  }
+
+  await sendToPopup({ type: 'STATUS_UPDATE', stage: 'DETECT', step: 0 });
+
+  // Step 0: POST /task to start the task fresh
   try {
     const resp = await fetch(`${API_BASE}/task`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        url:                domSnapshot.url,
+        url:                captured.domSnapshot.url,
         task:               task,
-        max_steps:          5,
-        ext_dom_snapshot:   domSnapshot,
-        ext_screenshot_b64: screenshotB64,
+        max_steps:          _state.maxSteps,
+        ext_dom_snapshot:   captured.domSnapshot,
+        ext_screenshot_b64: captured.screenshotB64,
       }),
     });
     const startResp = await resp.json();
     if (startResp.error) {
       await sendToPopup({ type: 'ERROR', message: startResp.error });
-      return false;
+      return;
     }
   } catch (err) {
     await sendToPopup({
       type: 'ERROR',
       message: `Backend unreachable: ${err.message}. Is the server running on localhost:8000?`,
     });
-    return false;
+    return;
   }
 
-  return true;
+  // Start polling for next_action / approval / status
+  _state.polling = true;
+  _state.pollTimer = setInterval(() => pollStatus(tabId), POLL_INTERVAL_MS);
 }
 
-// ── Status polling ─────────────────────────────────────────────────────────
+// ── Continue task with next DOM snapshot ────────────────────────────────────
+
+async function continueTask(tabId) {
+  if (_state.executingAction) return;   // guard against re-entry
+  _state.executingAction = true;
+
+  await sendToPopup({ type: 'STATUS_UPDATE', stage: 'CAPTURE', step: _state.currentStep });
+
+  const captured = await captureCurrentState(tabId);
+  if (!captured) {
+    _state.executingAction = false;
+    return;
+  }
+
+  await sendToPopup({ type: 'STATUS_UPDATE', stage: 'DETECT', step: _state.currentStep });
+
+  // Steps 1+: POST /next_step — continues existing task WITHOUT resetting state
+  try {
+    const resp = await fetch(`${API_BASE}/next_step`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ext_dom_snapshot:   captured.domSnapshot,
+        ext_screenshot_b64: captured.screenshotB64,
+      }),
+    });
+    const r = await resp.json();
+    if (r.error) {
+      await sendToPopup({ type: 'ERROR', message: r.error });
+    }
+  } catch (err) {
+    await sendToPopup({
+      type: 'ERROR',
+      message: `Next step failed: ${err.message}`,
+    });
+  }
+
+  _state.executingAction = false;
+}
+
+// ── Status polling ──────────────────────────────────────────────────────────
 
 async function pollStatus(tabId) {
   if (!_state.polling) return;
@@ -211,40 +262,49 @@ async function pollStatus(tabId) {
     _state.pendingAction = null;
   }
 
-  // Handle automated action execution on the live browser DOM
-  if (status.next_action && !_state.executingAction) {
-    _state.executingAction = true;
-    const act = status.next_action;
+  // Handle next_action: execute in DOM, report done, then trigger next step
+  // De-duplicate: only execute if this is a new action (not the same one we already ran)
+  const act = status.next_action;
+  if (act && !_state.executingAction) {
+    const sameAsLast = (
+      act.action_type === _state.lastNextActionType &&
+      act.target      === _state.lastNextActionTarget
+    );
+    if (!sameAsLast) {
+      _state.executingAction = true;
+      _state.lastNextActionType   = act.action_type;
+      _state.lastNextActionTarget = act.target;
 
-    let execResult = { success: false, message: 'Action execution failed' };
-    try {
-      const resp = await sendToContent(tabId, {
-        type: 'EXECUTE_ACTION',
-        action: act,
-      });
-      if (resp && resp.type === 'ACTION_RESULT') {
-        execResult = resp.result;
+      // 1. Execute the action in the live page DOM
+      let execResult = { success: false, message: 'Action execution failed' };
+      try {
+        const resp = await sendToContent(tabId, {
+          type: 'EXECUTE_ACTION',
+          action: act,
+        });
+        if (resp && resp.type === 'ACTION_RESULT') {
+          execResult = resp.result;
+        }
+      } catch (e) {
+        execResult = { success: false, message: e.message };
       }
-    } catch (e) {
-      execResult = { success: false, message: e.message };
-    }
 
-    try {
-      await fetch(`${API_BASE}/action_done`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(execResult),
-      });
-    } catch (_) {}
+      // 2. Report completion to backend (clears next_action in _state)
+      try {
+        await fetch(`${API_BASE}/action_done`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(execResult),
+        });
+      } catch (_) {}
 
-    _state.executingAction = false;
+      _state.executingAction = false;
 
-    // If more steps remain, trigger next action step after short DOM settle delay
-    if (act.action_type !== 'done' && _state.currentStep < _state.maxSteps) {
-      _state.currentStep++;
-      setTimeout(() => {
-        triggerStep(tabId, _state.task, _state.currentStep);
-      }, 1000);
+      // 3. If not done and more steps remain, trigger next step after DOM settles
+      if (act.action_type !== 'done' && _state.currentStep < _state.maxSteps) {
+        _state.currentStep++;
+        setTimeout(() => continueTask(tabId), 1200);
+      }
     }
   }
 

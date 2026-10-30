@@ -8,7 +8,7 @@
  *   1. On CAPTURE_DOM message from background: serialise interactive elements
  *      with stable data-pl-id attributes and bounding boxes, then send back.
  *   2. On EXECUTE_ACTION message: perform the action on the live DOM
- *      (click / type / select / scroll) using data-pl-id targets.
+ *      (click / type / select / scroll / navigate) using data-pl-id targets.
  *
  * Security: this script runs in the page context but only acts on messages
  * from the extension background (chrome.runtime). It never reads or sends
@@ -99,7 +99,7 @@ function executeAction(action) {
   // Locate element by data-pl-id
   const el = target ? document.querySelector(`[data-pl-id="${target}"]`) : null;
 
-  if (!el && action_type !== 'scroll' && action_type !== 'wait') {
+  if (!el && action_type !== 'scroll' && action_type !== 'wait' && action_type !== 'navigate') {
     return { success: false, message: `Element ${target} not found.` };
   }
 
@@ -143,6 +143,14 @@ function executeAction(action) {
         const [sx, sy] = (value || '0,300').split(',').map(Number);
         window.scrollBy(sx || 0, sy || 300);
         return { success: true, message: 'Scrolled' };
+
+      case 'navigate':
+        const dest = value || target;
+        if (dest && (dest.startsWith('http://') || dest.startsWith('https://') || dest.startsWith('file:///'))) {
+          window.location.href = dest;
+          return { success: true, message: `Navigated to ${dest}` };
+        }
+        return { success: false, message: 'Invalid navigation URL' };
 
       case 'wait':
         return { success: true, message: 'Wait acknowledged' };

@@ -360,6 +360,7 @@
         btnText.classList.remove('active');
         if (sentBody) sentBody.classList.add('hidden');
         if (imgBody) imgBody.classList.remove('hidden');
+        fetchPreview();
       });
     }
 

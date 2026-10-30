@@ -59,6 +59,11 @@ def mask_image(
                 x1 = min(img.width, int(loc["x"] + w + padding))
                 y1 = min(img.height, int(loc["y"] + h + padding))
 
+                # Skip if clamped box has zero or negative area
+                # (happens when image is smaller than the DOM bounding box, e.g. tiny test PNGs)
+                if x1 <= x0 or y1 <= y0:
+                    continue
+
                 # Draw completely opaque solid black fill (no blur, no pixelation)
                 draw.rectangle([x0, y0, x1, y1], fill=(0, 0, 0), outline=None)
 
@@ -87,4 +92,3 @@ def mask_image_b64(
     """Return the masked image as a base64 encoded string."""
     raw_bytes = mask_image_bytes(image_input, findings, padding=padding, format=format)
     return base64.b64encode(raw_bytes).decode("ascii")
-

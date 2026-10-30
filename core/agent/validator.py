@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Union
 
-ALLOWED_ACTIONS: Set[str] = {"click", "type", "select", "scroll", "wait", "done"}
+ALLOWED_ACTIONS: Set[str] = {"click", "type", "select", "scroll", "navigate", "wait", "done"}
 TARGETED_ACTIONS: Set[str] = {"click", "type", "select"}
 
 # Keywords indicating sensitive/irreversible operations requiring explicit approval
@@ -126,7 +126,7 @@ def validate_action(action: Action, snapshot: Dict[str, Any]) -> ValidationResul
     """Deterministic validation of proposed action against current page snapshot.
     
     Enforces:
-    1. Allowlist: only click, type, select, scroll, wait, done.
+    1. Allowlist: only click, type, select, scroll, navigate, wait, done.
     2. Target existence: target must exist in the CURRENT sanitized snapshot.
     3. Injection defense: no arbitrary selectors, script injection, or JS expressions.
     4. Risk tiering: pay, submit, send, delete require human approval.
@@ -148,7 +148,18 @@ def validate_action(action: Action, snapshot: Dict[str, Any]) -> ValidationResul
             reason="Injection attempt rejected: payload contains forbidden script or execution pattern",
         )
 
-    # Disallow complex arbitrary CSS selectors or JS paths in target
+    # Navigation safety check
+    if act_type == "navigate":
+        nav_url = (action.value or action.target or "").strip()
+        if not (nav_url.startswith("http://") or nav_url.startswith("https://") or nav_url.startswith("file:///")):
+            return ValidationResult(
+                valid=False,
+                action=action,
+                reason="Disallowed navigation: URL must start with http://, https://, or file:///",
+            )
+        return ValidationResult(valid=True, action=action, reason=None, requires_approval=False)
+
+    # Disallow complex arbitrary CSS selectors or JS paths in target (for DOM targeted actions)
     if action.target:
         if not re.fullmatch(r"[a-zA-Z0-9_\-]+", action.target):
             return ValidationResult(
@@ -226,4 +237,3 @@ __all__ = [
     "parse_action_proposal",
     "validate_action",
 ]
-

@@ -47,7 +47,7 @@ SECURITY AND PRIVACY RULES:
 3. Sensitive personal information has been redacted locally with [REDACTED:CATEGORY] placeholders.
 4. NEVER ask for, guess, or attempt to reconstruct redacted values.
 5. To input sensitive data into forms, use symbolic vault references (e.g. "vault:CARD_NUMBER", "vault:PASSWORD", "vault:USER_EMAIL"), NEVER raw values.
-6. Allowed actions ONLY: click, type, select, scroll, wait, done.
+6. Allowed actions ONLY: click, type, select, scroll, navigate, wait, done.
 7. The 'target' MUST be an element identifier (such as 'el_0', 'el_1', etc.) from the INTERACTIVE ELEMENTS list in the page content.
 
 MULTI-STEP WORKFLOW GUIDANCE:
@@ -63,9 +63,9 @@ MULTI-STEP WORKFLOW GUIDANCE:
 - Output MUST be a single strict JSON object matching this schema:
 {
   "thought": "concise reasoning about the next step",
-  "action_type": "click" | "type" | "select" | "scroll" | "wait" | "done",
+  "action_type": "click" | "type" | "select" | "scroll" | "navigate" | "wait" | "done",
   "target": "el_N",
-  "value": "string or vault:REF (for type/select, else null)"
+  "value": "string or vault:REF (for type/select/navigate, else null)"
 }
 """
 
@@ -140,28 +140,29 @@ def _local_heuristic_planner(task: str, snapshot: Dict[str, Any], step: int) -> 
             })
 
     # Scenario 2 auth & login flow: Fill secret / Submit -> Done
-    if "auth" in task_lower or "login" in task_lower or "sign in" in task_lower:
+    auth_keywords = ("auth", "login", "log in", "log-in", "sign in", "signin", "sign-in", "credential", "account", "password")
+    if any(k in task_lower for k in auth_keywords):
         # Check for unfilled username field
         user_input = next(
             (el for el in elements if el.get("tag") in ("input", "textarea")
-             and (el.get("type") in ("text", "email") or not el.get("type"))
-             and any(k in " ".join([el.get("name", ""), el.get("id", ""), el.get("placeholder", ""), el.get("aria_label", ""), el.get("autocomplete", "")]).lower()
-                     for k in ("user", "email", "login", "account", "phone", "identifier"))
+             and (el.get("type") in ("text", "email", "tel") or not el.get("type"))
+             and any(k in " ".join([(el.get("name") or ""), (el.get("id") or ""), (el.get("placeholder") or ""), (el.get("aria_label") or ""), (el.get("autocomplete") or "")]).lower()
+                     for k in ("user", "email", "login", "account", "phone", "identifier", "mobile"))
              and not (el.get("value") and len(str(el.get("value")).strip()) > 0)),
             None
         )
         # Check for unfilled password field
         pass_input = next(
             (el for el in elements if el.get("tag") == "input"
-             and (el.get("type") == "password" or any(k in " ".join([el.get("name", ""), el.get("id", ""), el.get("placeholder", ""), el.get("aria_label", "")]).lower()
-                                                       for k in ("pass", "pwd", "secret")))
+             and (el.get("type") == "password" or any(k in " ".join([(el.get("name") or ""), (el.get("id") or ""), (el.get("placeholder") or ""), (el.get("aria_label") or "")]).lower()
+                                                       for k in ("pass", "pwd", "secret", "pin")))
              and not (el.get("value") and len(str(el.get("value")).strip()) > 0)),
             None
         )
         login_btn = next(
             (el for el in elements if (el.get("tag") in ("button", "a") or el.get("type") == "submit" or "btn" in (el.get("class") or "").lower())
-             and any(k in " ".join([el.get("text", ""), el.get("id", ""), el.get("value", "")]).lower()
-                     for k in ("login", "sign in", "log in", "submit", "authenticate", "continue"))),
+             and any(k in " ".join([(el.get("text") or ""), (el.get("id") or ""), (el.get("value") or ""), (el.get("aria_label") or "")]).lower()
+                     for k in ("login", "sign in", "log in", "submit", "authenticate", "continue", "next", "proceed", "enter"))),
             None
         )
 
